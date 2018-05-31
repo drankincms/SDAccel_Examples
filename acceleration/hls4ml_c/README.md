@@ -1,4 +1,4 @@
-Hello World (HLS C/C++ Kernel)
+HLS4ML on AWS (HLS C/C++ Kernel)
 ======================
 
 This README file contains the following sections:
