@@ -17,8 +17,8 @@ host_CXXFLAGS=-I./src/ -I$(HLS4ML_BASE)/nnet_utils/ -I$(HLS4ML_BASE)/keras-to-hl
 host_LDFLAGS=$(opencl_LDFLAGS) -I$(XILINX_VIVADO)/include/ -I$(XILINX_SDACCEL)/include/ -Wno-unknown-pragmas
 
 # aws_hls4ml Kernels
-aws_hls4ml_SRCS=./src/aws_hls4ml.cpp $(HLS4ML_BASE)/keras-to-hls/$(HLS4ML_PROJECT)/firmware/$(HLS4ML_NAME).cpp 
-aws_hls4ml_CLFLAGS=-k aws_hls4ml -I./src/ -I$(HLS4ML_BASE)/keras-to-hls/$(HLS4ML_PROJECT)/firmware/ -I$(HLS4ML_BASE)/keras-to-hls/$(HLS4ML_PROJECT)/firmware/weights -I$(HLS4ML_BASE)/nnet_utils/
+aws_hls4ml_SRCS=./src/aws_hls4ml.cpp $(HLS4ML_BASE)/keras-to-hls/$(HLS4ML_PROJECT)/firmware/$(HLS4ML_NAME).cpp
+aws_hls4ml_CLFLAGS=-k aws_hls4ml -DMYPROJ=$(HLS4ML_NAME) -I./src/ -I$(HLS4ML_BASE)/keras-to-hls/$(HLS4ML_PROJECT)/firmware/ -I$(HLS4ML_BASE)/keras-to-hls/$(HLS4ML_PROJECT)/firmware/weights -I$(HLS4ML_BASE)/nnet_utils/
 
 EXES=host
 XCLBINS=aws_hls4ml

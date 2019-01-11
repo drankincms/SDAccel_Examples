@@ -34,8 +34,10 @@ Description:
     This is vector addition example to demonstrate how HLS optimizations are used in kernel. 
 *******************************************************************************/
 
+#define PROJ_HDR <MYPROJ.h>
+
 #include <parameters.h>
-#include <myproject.h>
+#include PROJ_HDR
 #include "kernel_params.h"
 
 /*
@@ -80,7 +82,7 @@ void aws_hls4ml(
 
     for (int i = 0; i < STREAMSIZE; i++) {
 #pragma HLS dataflow
-        hls4ml: myproject(in_buf[i],out_buf[i],insize,outsize);
+        hls4ml: MYPROJ(in_buf[i],out_buf[i],insize,outsize);
     }
 
     for (int i = 0; i < STREAMSIZE; i++) {
