@@ -10,27 +10,10 @@
     "libs": [
         "xcl2"
     ],
-    "config_make": "config.mk",
-    "output_files": "tmp_kernel_pack* packaged_kernel*",
-    "host_srcs": "src/host.cpp",
     "runtime": ["OpenCL"],
-    "host_exe": "host",
+    "em_cmd": "./host",
     "targets": ["hw", "hw_emu"],
-    "containers": [
-	{
-	    "name": "vadd",
-	    "accelerators": [
-		{
-		    "name": "rtl_vadd",
-		    "kernel_type": "RTL"
-		},
-		{
-		    "name": "krnl_vadd",
-		    "location": "src/krnl_vadd.cl"
-		}
-	    ]
-	}
-    ],
+    "hw_cmd": "../../../utility/nimbix/nimbix-run.py -- ./host",
     "contributors" : [
         {
             "group": "Xilinx",
@@ -44,5 +27,6 @@
             "description": "Initial Xilinx Release"
         }
     ],
+    "match_makefile": "false",
     "sdx_gui": "false"
 }

@@ -74,70 +74,67 @@ int main(int argc, char **argv) {
 
     size_t size_in_bytes = signal_size * sizeof(int);
     size_t coeff_size_in_bytes = coeff.size() * sizeof(int);
-    cl_int err;
 
     // Initialize OpenCL context and load xclbin binary
     std::vector<cl::Device> devices = xcl::get_xil_devices();
     cl::Device device = devices[0];
 
-    OCL_CHECK(err, cl::Context context(device, NULL, NULL, NULL, &err));
-    OCL_CHECK(err, cl::CommandQueue q(context,device,CL_QUEUE_PROFILING_ENABLE, &err));
-    OCL_CHECK(err, std::string device_name = device.getInfo<CL_DEVICE_NAME>(&err));
+    cl::Context context(device);
+    cl::CommandQueue q(context,device,CL_QUEUE_PROFILING_ENABLE);
+    std::string device_name = device.getInfo<CL_DEVICE_NAME>(); 
 
     //Create Program 
     std::string binaryFile = xcl::find_binary_file(device_name,"fir");
     cl::Program::Binaries bins = xcl::import_binary_file(binaryFile);
     devices.resize(1);
-    OCL_CHECK(err, cl::Program program(context, devices, bins, NULL, &err));
+    cl::Program program(context, devices, bins);
 
     //Allocate Buffer in Global Memory
-    OCL_CHECK(err, cl::Buffer buffer_signal(context,CL_MEM_USE_HOST_PTR | CL_MEM_READ_ONLY,
-            size_in_bytes, signal.data(), &err));
-    OCL_CHECK(err, cl::Buffer buffer_coeff (context,CL_MEM_USE_HOST_PTR | CL_MEM_READ_ONLY,
-            coeff_size_in_bytes, coeff.data(), &err));
-    OCL_CHECK(err, cl::Buffer buffer_output(context,CL_MEM_USE_HOST_PTR | CL_MEM_WRITE_ONLY,
-            size_in_bytes, out.data(), &err));
+    cl::Buffer buffer_signal(context,CL_MEM_USE_HOST_PTR | CL_MEM_READ_ONLY, 
+            size_in_bytes, signal.data());
+    cl::Buffer buffer_coeff (context,CL_MEM_USE_HOST_PTR | CL_MEM_READ_ONLY, 
+            coeff_size_in_bytes, coeff.data());
+    cl::Buffer buffer_output(context,CL_MEM_USE_HOST_PTR | CL_MEM_WRITE_ONLY,
+            size_in_bytes, out.data());
     std::vector<cl::Memory> inBufVec, outBufVec;
     inBufVec.push_back(buffer_signal);
     inBufVec.push_back(buffer_coeff);
     outBufVec.push_back(buffer_output);
 
     //Copy input data to device global memory
-    OCL_CHECK(err, err = q.enqueueMigrateMemObjects(inBufVec,0/* 0 means from host*/));
+    q.enqueueMigrateMemObjects(inBufVec,0/* 0 means from host*/);
 
     //Creating Naive Kernel Object and setting args
-    OCL_CHECK(err, cl::Kernel fir_naive_kernel(program, "fir_naive", &err));
-
-    OCL_CHECK(err, err = fir_naive_kernel.setArg(0,buffer_output));
-    OCL_CHECK(err, err = fir_naive_kernel.setArg(1,buffer_signal));
-    OCL_CHECK(err, err = fir_naive_kernel.setArg(2,buffer_coeff));
-    OCL_CHECK(err, err = fir_naive_kernel.setArg(3,signal_size));
+    cl::Kernel fir_naive_kernel(program, "fir_naive");
+    fir_naive_kernel.setArg(0,buffer_output);
+    fir_naive_kernel.setArg(1,buffer_signal);
+    fir_naive_kernel.setArg(2,buffer_coeff);
+    fir_naive_kernel.setArg(3,signal_size);
 
     cl::Event event;
     int iterations = xcl::is_emulation() ? 2 : 100;
     uint64_t fir_naive_time = 0;
     //Running naive kernel iterations times
     for (int i = 0 ; i < iterations ; i++){
-        OCL_CHECK(err, err = q.enqueueTask(fir_naive_kernel,NULL,&event));
-        OCL_CHECK(err, err = q.enqueueMigrateMemObjects(outBufVec,CL_MIGRATE_MEM_OBJECT_HOST));
+        q.enqueueTask(fir_naive_kernel,NULL,&event);
+        q.enqueueMigrateMemObjects(outBufVec,CL_MIGRATE_MEM_OBJECT_HOST);
         q.finish();
         fir_naive_time += get_duration_ns(event);
         verify(gold, out);
     }
 
     //Creating FIR Shift Register Kernel object and setting args
-    OCL_CHECK(err, cl::Kernel fir_sr_kernel(program, "fir_shift_register", &err));
-
-    OCL_CHECK(err, err = fir_sr_kernel.setArg(0,buffer_output));
-    OCL_CHECK(err, err = fir_sr_kernel.setArg(1,buffer_signal));
-    OCL_CHECK(err, err = fir_sr_kernel.setArg(2,buffer_coeff));
-    OCL_CHECK(err, err = fir_sr_kernel.setArg(3,signal_size));
+    cl::Kernel fir_sr_kernel(program, "fir_shift_register");
+    fir_sr_kernel.setArg(0,buffer_output);
+    fir_sr_kernel.setArg(1,buffer_signal);
+    fir_sr_kernel.setArg(2,buffer_coeff);
+    fir_sr_kernel.setArg(3,signal_size);
 
     uint64_t fir_sr_time = 0;
     //Running Shift Register FIR iterations times
     for (int i = 0 ; i < iterations ; i++){
-        OCL_CHECK(err, err = q.enqueueTask(fir_sr_kernel,NULL,&event));
-        OCL_CHECK(err, err = q.enqueueMigrateMemObjects(outBufVec,CL_MIGRATE_MEM_OBJECT_HOST));
+        q.enqueueTask(fir_sr_kernel,NULL,&event);
+        q.enqueueMigrateMemObjects(outBufVec,CL_MIGRATE_MEM_OBJECT_HOST);
         q.finish();
         fir_sr_time += get_duration_ns(event);
         verify(gold, out);
@@ -183,20 +180,19 @@ void verify( const vector<int,aligned_allocator<int>> &gold,
 
 uint64_t get_duration_ns (const cl::Event &event) {
     uint64_t nstimestart, nstimeend;
-    cl_int err;
-    OCL_CHECK(err, err = event.getProfilingInfo<uint64_t>(CL_PROFILING_COMMAND_START,&nstimestart));
-    OCL_CHECK(err, err = event.getProfilingInfo<uint64_t>(CL_PROFILING_COMMAND_END,&nstimeend));
+    event.getProfilingInfo<uint64_t>(CL_PROFILING_COMMAND_START,&nstimestart);
+    event.getProfilingInfo<uint64_t>(CL_PROFILING_COMMAND_END,&nstimeend);
     return(nstimeend-nstimestart);
 }
 void print_summary(std::string k1, std::string k2, uint64_t t1, uint64_t t2, int iterations ) {
-    double speedup = (double)t1 / (double)t2;
+    int percentage_improvement = ((t1-t2)*100) / t1;
     printf("|-------------------------+-------------------------|\n"
            "| Kernel(%3d iterations)  |    Wall-Clock Time (ns) |\n"
            "|-------------------------+-------------------------|\n",iterations);
     printf("| %-23s | %23lu |\n", k1.c_str(), t1);
     printf("| %-23s | %23lu |\n", k2.c_str(), t2);
     printf("|-------------------------+-------------------------|\n");
-    printf("| Speedup: | %23lf |\n",speedup);
+    printf("| Percentage improvement: | %23d |\n",percentage_improvement);
     printf("|-------------------------+-------------------------|\n");
     printf("Note: Wall Clock Time is meaningful for real hardware execution only, not for emulation.\n");
     printf("Please refer to profile summary for kernel execution time for hardware emulation.\n");
@@ -207,4 +203,3 @@ void print_summary(std::string k1, std::string k2, uint64_t t1, uint64_t t2, int
         exit(EXIT_FAILURE);
     }
 }
-

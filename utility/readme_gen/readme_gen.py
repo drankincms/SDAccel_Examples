@@ -1,32 +1,21 @@
 #!/usr/bin/env python
 from sys import argv
-from collections import OrderedDict
 import json
 import os
 import subprocess
 
-DSA = 'xilinx_vcu1525_dynamic'
-VERSION = 'SDAccel 2018.2.xdf'
+DSA = 'xilinx:kcu1500:dynamic'
+VERSION = 'SDAccel 2017.4'
 DEVICES = {
-    'xilinx_kcu1500_dynamic': {
+    'xilinx:kcu1500:dynamic': {
        'version': '5.0',
        'name': 'Xilinx Kintex UltraScale KCU1500',
-       'nae':  'nx4'
-    },
-    'xilinx_vcu1525_dynamic': {
-       'version': '5.0',
-       'name': 'Xilinx Virtex UltraScale+ VCU1525',
        'nae':  'nx5'
     },
-    'xilinx_u200_xdma_201820_1': {
+    'xilinx:vcu1525:dynamic': {
        'version': '5.0',
-       'name': 'Xilinx Virtex UltraScale+ VCU1525',
+       'name': 'Xilinx Kintex UltraScalePlus VCU1525',
        'nae':  'nx6'
-    },
-    'xilinx_u250_xdma_201820_1': {
-       'version': '5.0',
-       'name': 'Xilinx Virtex UltraScale+ VCU1526',
-       'nae':  'nx7'
     }
 }
 
@@ -65,21 +54,19 @@ def overview(target,data):
         target.write("\n\n")
     if 'perf_fields' in data:
         target.write("### PERFORMANCE\n")
-	ctr = len(data["perf_fields"])
-	for idx in range(0, ctr - 1):
-            target.write(data["perf_fields"][idx])
-            target.write("|")
-	target.write(data["perf_fields"][ctr - 1])
+        target.write(data["perf_fields"][0])
+        target.write("|")
+        target.write(data["perf_fields"][1])
+        target.write("|")
+        target.write(data["perf_fields"][2])
         target.write("\n")
-	for idx in range(0, ctr - 1):
-            target.write("-----|")
-	target.write("-----\n")
-	count = len(data["performance"])	
-        for result in range(0, count):
-	    for i in range(0, ctr - 1):
-		target.write(data["performance"][result][i])
-		target.write("|")
-            target.write(data["performance"][result][ctr - 1])	
+        target.write("----|-----|-----\n")
+        for result in data["performance"]:
+            target.write(result["system"])
+            target.write("|")
+            target.write(result["constraint"])
+            target.write("|")
+            target.write(result["metric"])
             target.write("\n")
     if 'key_concepts' in data:
         target.write("***KEY CONCEPTS:*** ")
@@ -127,8 +114,9 @@ def requirements(target,data):
     target.write("\n\n")
     target.write("*NOTE:* The board/device used for compilation can be changed by adding the DEVICES variable to the make command as shown below\n")
     target.write("```\n")
-    target.write("make DEVICES=<.xpfm file path> all\n")
+    target.write("make DEVICES=<device name>\n")
     target.write("```\n")
+    target.write("where the *DEVICES* variable accepts either 1 device from the table above or a comma separated list of device names.\n\n")
     try:
       if data['opencv']:
                 target.write("***OpenCV for Example Applications***\n\n")
@@ -162,7 +150,7 @@ def compilation(target,data):
     target.write("These modes, which are named sw_emu and hw_emu, allow the developer to profile and evaluate the performance of a design before compiling for board execution.\n")
     target.write("It is recommended that all applications are executed in at least the sw_emu mode before being compiled and executed on an FPGA board.\n")
     target.write("```\n")
-    target.write("make all TARGET=<sw_emu|hw_emu> DEVICE=<FPGA Platform>\n")
+    target.write("make TARGETS=<sw_emu|hw_emu> all\n")
     target.write("```\n")
     target.write("where\n")
     target.write("```\n")
@@ -176,7 +164,7 @@ def compilation(target,data):
     target.write("***Recommended Execution Flow for Example Applications in Emulation*** \n\n")
     target.write("The makefile for the application can directly executed the application with the following command:\n")
     target.write("```\n")
-    target.write("make check TARGET=<sw_emu|hw_emu> DEVICE=<FPGA Platform>\n\n")
+    target.write("make TARGETS=<sw_emu|hw_emu> check\n\n")
     target.write("```\n")
     target.write("where\n")
     target.write("```\n")
@@ -198,27 +186,17 @@ def compilation(target,data):
     except:
         target.write('<sw_emu|hw_emu>')
     target.write('\n')
-    target.write("emconfigutil --platform '" + DSA + "' --nd 1\n")
+    target.write("emconfigutil --xdevice '" + DSA + "' --nd 1\n")
     target.write("```\n")
     target.write("Once the environment has been configured, the application can be executed by\n")
     target.write("```\n")
-    if not "cmd_args" in data:
-        target.write('./' + data["host_exe"])
-    else:
-        target.write('./' + data["host_exe"])
-        args = data["cmd_args"].split(" ")
-        for arg in args[0:]:
-            target.write(" ")
-            arg = arg.replace('BUILD', './xclbin')
-            arg = arg.replace('PROJECT', '.')
-            arg = arg.replace('.xclbin', '.<emulation target>.<device name>.xclbin') 
-            target.write(arg)
+    target.write(data["em_cmd"])
     target.write("\n```\n")
     target.write("This is the same command executed by the check makefile rule\n")
     target.write("### Compiling for Application Execution in the FPGA Accelerator Card\n")
     target.write("The command to compile the application for execution on the FPGA acceleration board is\n")
     target.write("```\n")
-    target.write("make all DEVICE=<FPGA Platform>\n")
+    target.write("make all\n")
     target.write("```\n")
     target.write("The default target for the makefile is to compile for hardware. Therefore, setting the TARGETS option is not required.\n")
     target.write("*NOTE:* Compilation for application execution in hardware generates custom logic to implement the functionality of the kernels in an application.\n")
@@ -229,6 +207,7 @@ def execution(target):
     target.write("FPGA acceleration boards have been deployed to the cloud. For information on how to execute the example within a specific cloud, take a look at the following guides.\n");
     target.write("* [AWS F1 Application Execution on Xilinx Virtex UltraScale Devices]\n")
     target.write("* [Nimbix Application Execution on Xilinx Kintex UltraScale Devices]\n")
+    target.write("* [IBM SuperVessel Research Cloud on Xilinx Virtex Devices]\n")
     target.write("\n")
 
 def nimbix(target):
@@ -255,25 +234,7 @@ def nimbix(target):
     target.write("* Follow the instructions in [Nimbix Application Submission README][]\n\n")
     target.write("* Use the following command to launch the application from the users terminal (on a system outside of the Nimbix environment)\n")
     target.write("```\n")
-    dirName = os.getcwd()
-    dirNameList = list(dirName.split("/"))
-    dirNameIndex = dirNameList.index("apps")
-    diff = len(dirNameList) - dirNameIndex - 1
-    while diff > 0:
-	    target.write("../")
-	    diff -= 1 
-    target.write("utility/nimbix/nimbix-run.py -- ")
-    if not "cmd_args" in data:
-        target.write('./' + data["host_exe"])
-    else:
-        target.write('./' + data["host_exe"])
-        args = data["cmd_args"].split(" ")
-        for arg in args[0:]:
-            target.write(" ")
-            arg = arg.replace('BUILD', './xclbin')
-            arg = arg.replace('PROJECT', '.')
-            arg = arg.replace('.xclbin', '.<emulation target>.<device name>.xclbin')
-            target.write(arg)
+    target.write(data["hw_cmd"])
     target.write("\n")
     target.write("```\n\n")
     target.write("***Copy the application files from the Developer to Runtime instances on Nimbix***\n")
@@ -281,17 +242,7 @@ def nimbix(target):
     target.write("* Launch the application using the Nimbix web interface as described in [Nimbix Getting Started Guide][]\n")
     target.write("* Make sure that the application launch options in the Nimbix web interface reflect the applications command line syntax\n")
     target.write("```\n")
-    if not "cmd_args" in data:
-        target.write('./' + data["host_exe"])
-    else:
-        target.write('./' + data["host_exe"])
-        args = data["cmd_args"].split(" ")
-        for arg in args[0:]:
-            target.write(" ")
-            arg = arg.replace('BUILD', './xclbin')
-            arg = arg.replace('PROJECT', '.')
-            arg = arg.replace('.xclbin', '.<emulation target>.<device name>.xclbin')
-            target.write(arg)
+    target.write(data["em_cmd"])
     target.write("\n")
     target.write("```\n")
     return
@@ -301,7 +252,7 @@ def power(target):
     target.write("View the SuperVessel [Walkthrough Video][] to become familiar with the environment.\n\n")
     target.write("Compile the application with the following command\n")
     target.write("```\n")
-    target.write("make ARCH=POWER DEVICES=<FPGA Platform> all\n")
+    target.write("make ARCH=POWER all\n")
     target.write("```\n")
     return
 
@@ -361,6 +312,7 @@ def footer(target):
     target.write("[SDaccel GUI README]: " + root + "GUIREADME.md\n")
     target.write("[AWS F1 Application Execution on Xilinx Virtex UltraScale Devices]: https://github.com/aws/aws-fpga/blob/master/SDAccel/README.md\n")
     target.write("[Nimbix Application Execution on Xilinx Kintex UltraScale Devices]: " + root + "utility/nimbix/README.md\n")
+    target.write("[IBM SuperVessel Research Cloud on Xilinx Virtex Devices]: http://bcove.me/6pp0o482\n")
     return
 
 # Get the argument from the description
@@ -394,4 +346,3 @@ license(target)
 ack(target,data)
 footer(target)
 target.close
-

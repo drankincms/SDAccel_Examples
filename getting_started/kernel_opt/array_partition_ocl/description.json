@@ -12,8 +12,8 @@
     "libs": [
         "xcl2"
     ],
-    "host_exe": "array_partition",
-    "output_files": "output.png",        
+    "em_cmd": "./array_partition",
+    "hw_cmd": "../../utility/nimbix/nimbix-run.py -- ./array_partition",
     "containers": [
         {
             "name": "matmul",
@@ -34,6 +34,13 @@
         {
             "group": "Xilinx",
             "url" : "http://www.xilinx.com"
+        }
+    ],
+    "revision" : [
+        {
+            "date" : "DEC2016",
+            "version": "1.0",
+            "description": "Initial Xilinx Release"
         }
     ]
 }

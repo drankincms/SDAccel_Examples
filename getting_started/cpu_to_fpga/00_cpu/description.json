@@ -7,8 +7,8 @@
     "os": [
         "Linux"
     ],
-    "host_exe": "host",
     "targets": ["sw_emu"],
+    "em_cmd": "./host",
     "contributors" : [
         {
             "group": "Xilinx",

@@ -27,7 +27,8 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 **********/
 
-#pragma once
+#ifndef __MEDIAN_HELPER_H__
+#define __MEDIAN_HELPER_H__
 
 // This file contains helper functions for performing median filtering
 
@@ -206,3 +207,4 @@ void getMedianWindow(uint *rgbWindow, uint linebuf[MEDIAN_WINDOW][MAX_WIDTH], un
     }
 }
 
+#endif

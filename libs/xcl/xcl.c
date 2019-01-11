@@ -119,6 +119,13 @@ xcl_world xcl_world_single_vendor(const char* vendor_name) {
 			 * XCL_EMULATION_MODE is set to */
 			world.mode = xcl_create_and_set(xcl_mode);
 		}
+
+		/* TODO: Remove once 2016.4 is released */
+		err = setenv("XCL_EMULATION_MODE", "true", 1);
+		if(err != 0) {
+			printf("Error: cannot set XCL_EMULATION_MODE\n");
+			exit(EXIT_FAILURE);
+		}
 	}
 
 	err = clGetPlatformIDs(0, NULL, &num_platforms);
@@ -580,9 +587,8 @@ unsigned long xcl_run_kernel3d(xcl_world world, cl_kernel krnl,
 	}
 
 	clFinish(world.command_queue);
-    unsigned long exec_time =xcl_get_event_duration(event);
-    clReleaseEvent(event);
-	return exec_time;
+
+	return xcl_get_event_duration(event);
 }
 
 void xcl_run_kernel3d_nb(xcl_world world, cl_kernel krnl,cl_event *event,

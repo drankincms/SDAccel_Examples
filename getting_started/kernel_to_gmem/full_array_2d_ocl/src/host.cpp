@@ -72,7 +72,6 @@ int main(int argc, char** argv)
     std::vector<int,aligned_allocator<int>> source_input_b   (matrix_size);
     std::vector<int,aligned_allocator<int>> source_hw_results(matrix_size);
     std::vector<int,aligned_allocator<int>> source_sw_results(matrix_size);
-    cl_int err;
 
     // Create the test data and Software Result 
     for(int i = 0 ; i < matrix_size ; i++){
@@ -86,46 +85,42 @@ int main(int argc, char** argv)
     std::vector<cl::Device> devices = xcl::get_xil_devices();
     cl::Device device = devices[0];
 
-
-    OCL_CHECK(err, cl::Context context(device, NULL, NULL, NULL, &err));
-    OCL_CHECK(err, cl::CommandQueue q(context, device, CL_QUEUE_PROFILING_ENABLE, &err));
-    OCL_CHECK(err, std::string device_name = device.getInfo<CL_DEVICE_NAME>(&err));
+    cl::Context context(device);
+    cl::CommandQueue q(context, device, CL_QUEUE_PROFILING_ENABLE);
+    std::string device_name = device.getInfo<CL_DEVICE_NAME>(); 
 
     std::string binaryFile = xcl::find_binary_file(device_name,"mmult");
     cl::Program::Binaries bins = xcl::import_binary_file(binaryFile);
     devices.resize(1);
-    OCL_CHECK(err, cl::Program program(context, devices, bins, NULL, &err));
+    cl::Program program(context, devices, bins);
+    cl::Kernel kernel(program,"mmult");
 
     //Allocate Buffer in Global Memory
-    OCL_CHECK(err, cl::Buffer buffer_a(context, CL_MEM_USE_HOST_PTR | CL_MEM_READ_ONLY,
-    			matrix_size_in_bytes, source_input_a.data(), &err));
-    OCL_CHECK(err, cl::Buffer buffer_b(context,CL_MEM_USE_HOST_PTR | CL_MEM_READ_ONLY,
-            matrix_size_in_bytes, source_input_b.data(), &err));
-    OCL_CHECK(err, cl::Buffer buffer_c(context,CL_MEM_USE_HOST_PTR | CL_MEM_WRITE_ONLY,
-            matrix_size_in_bytes, source_hw_results.data(), &err));
+    cl::Buffer buffer_a(context,CL_MEM_USE_HOST_PTR | CL_MEM_READ_ONLY,  
+            matrix_size_in_bytes,source_input_a.data());
+    cl::Buffer buffer_b(context,CL_MEM_USE_HOST_PTR | CL_MEM_READ_ONLY,  
+            matrix_size_in_bytes,source_input_b.data());
+    cl::Buffer buffer_c(context,CL_MEM_USE_HOST_PTR | CL_MEM_WRITE_ONLY, 
+            matrix_size_in_bytes, source_hw_results.data());
 
     std::vector<cl::Memory> writeBufVec;
     writeBufVec.push_back(buffer_a);
     writeBufVec.push_back(buffer_b);
     //Migrate  input data to device global memory
-    OCL_CHECK(err, err = q.enqueueMigrateMemObjects(writeBufVec,0/* 0 means from host*/));
+    q.enqueueMigrateMemObjects(writeBufVec,0/* 0 means from host*/);
 
-    //Make the Kernel Functor
-    auto krnl_mmult = cl::KernelFunctor<cl::Buffer&,cl::Buffer&,cl::Buffer&,int>(program, "mmult", &err);
-    if (err != CL_SUCCESS) {
-          printf("Error calling Kernel Functor: Error code is: %d\n", err);
-          exit(EXIT_FAILURE);
-        }
+    auto krnl_mmult 
+        = cl::KernelFunctor<cl::Buffer&,cl::Buffer&,cl::Buffer&,int>(kernel);
 
     //Launch the Kernel
-    krnl_mmult(cl::EnqueueArgs(q,cl::NDRange(1,1,1), cl::NDRange(1,1,1)),
+    krnl_mmult(cl::EnqueueArgs(q,cl::NDRange(1,1,1), cl::NDRange(1,1,1)), 
             buffer_a,buffer_b,buffer_c, dim);
 
     std::vector<cl::Memory> readBufVec;
     readBufVec.push_back(buffer_c);
     //Copy Result from Device Global Memory to Host Local Memory
-    OCL_CHECK(err, err = q.enqueueMigrateMemObjects(readBufVec,CL_MIGRATE_MEM_OBJECT_HOST));
-    OCL_CHECK(err, err = q.finish());
+    q.enqueueMigrateMemObjects(readBufVec,CL_MIGRATE_MEM_OBJECT_HOST);
+    q.finish();
 //OPENCL HOST CODE AREA END
     
     // Compare the results of the Device to the simulation

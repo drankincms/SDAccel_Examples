@@ -43,10 +43,6 @@ Description:
 #define VECTOR_SIZE (DATAWIDTH / 32) // vector size is 16 (512/32 = 16)
 typedef ap_uint<DATAWIDTH> uint512_dt;
 
-//TRIPCOUNT identifier
-const unsigned int c_chunk_sz = BUFFER_SIZE;
-const unsigned int c_size = VECTOR_SIZE;
-
 /*
     Vector Addition Kernel Implementation using uint512_dt datatype 
     Arguments:
@@ -83,7 +79,7 @@ void vadd(
     //Per iteration of this loop perform BUFFER_SIZE vector addition
     for(int i = 0; i < size_in16;  i += BUFFER_SIZE)
     {
-        #pragma HLS LOOP_TRIPCOUNT min=c_chunk_sz/c_size max=c_chunk_sz/c_size
+        #pragma HLS LOOP_TRIPCOUNT min=8 max=8
         int chunk_size = BUFFER_SIZE;
 
         //boundary checks
@@ -93,14 +89,14 @@ void vadd(
         //burst read first vector from global memory to local memory
         v1_rd: for (int j = 0 ; j <  chunk_size; j++){
         #pragma HLS pipeline
-        #pragma HLS LOOP_TRIPCOUNT min=c_chunk_sz max=c_chunk_sz
+        #pragma HLS LOOP_TRIPCOUNT min=128 max=128
             v1_local[j] = in1 [i + j];
         }
 
         //burst read second vector and perform vector addition
         v2_rd_add: for (int j = 0 ; j < chunk_size; j++){
         #pragma HLS pipeline
-        #pragma HLS LOOP_TRIPCOUNT min=c_chunk_sz max=c_chunk_sz
+        #pragma HLS LOOP_TRIPCOUNT min=128 max=128
             uint512_dt tmpV1     = v1_local[j];
             uint512_dt tmpV2     = in2[i+j];
             result_local[j] = tmpV1 + tmpV2; // Vector Addition Operation
@@ -109,7 +105,7 @@ void vadd(
         //burst write the result
         out_write: for (int j = 0 ; j < chunk_size; j++){
         #pragma HLS pipeline
-        #pragma HLS LOOP_TRIPCOUNT min=c_chunk_sz max=c_chunk_sz
+        #pragma HLS LOOP_TRIPCOUNT min=128 max=128
             out[i+j] = result_local[j];
        }
     }

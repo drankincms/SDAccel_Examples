@@ -30,7 +30,6 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef H_DMA_
 #define H_DMA_
 
-#include <cstddef>
 #include <inttypes.h>
 #include <ap_fixed.h>
 #include <ap_int.h>
@@ -42,10 +41,7 @@ const int CMWC_CYCLE = 4096;
 const int maxSizeOfBlock = 1024;   // 32*1k = 1BRAM
 //const int maxNofBlock    = 16384;  // 16k * 1k = 16M samples
 const int maxNofBlock    = 262144;  // 256 * 1k = 256k samples = 1 GByte
-
-//TRIPCOUNT identifiers
 const int maxNofSample   = maxSizeOfBlock * maxNofBlock;
-const int minNofSample   = 1;
 
 // number of PRNG units
 const int nofPRNG = 16;  // don't go beyond 16, to limit number of bits to 512
@@ -54,5 +50,6 @@ typedef   ap_uint<nofPRNG*32>  dout_t;
 extern "C" {
 	void dma (dout_t *mem_out, data_t *mem_in, int nofBlock);
 }
+
 
 #endif

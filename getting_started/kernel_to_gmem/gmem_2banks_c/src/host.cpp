@@ -39,7 +39,7 @@ int main(int argc, char* argv[])
     }
     std::string bitmapFilename = argv[1];
     std::string goldenFilename = argv[2];
-    cl_int err;
+  
     //Read the input bit map file into memory
     BitmapInterface image(bitmapFilename.data());
     bool result = image.readBitmapFile() ;
@@ -77,58 +77,52 @@ int main(int argc, char* argv[])
     std::vector<cl::Device> devices = xcl::get_xil_devices();
     cl::Device device = devices[0];
 
-    OCL_CHECK(err, cl::Context context(device, NULL, NULL, NULL ,&err));
-    OCL_CHECK(err, cl::CommandQueue q(context, device, CL_QUEUE_PROFILING_ENABLE, &err));
-    OCL_CHECK(err, std::string device_name = device.getInfo<CL_DEVICE_NAME>(&err));
+    cl::Context context(device);
+    cl::CommandQueue q(context, device, CL_QUEUE_PROFILING_ENABLE);
+    std::string device_name = device.getInfo<CL_DEVICE_NAME>(); 
 
     std::string binaryFile = xcl::find_binary_file(device_name,"apply_watermark");
     cl::Program::Binaries bins = xcl::import_binary_file(binaryFile);
     devices.resize(1);
-    OCL_CHECK(err, cl::Program program(context, devices, bins, NULL, &err));
-    
-    OCL_CHECK(err, cl::Kernel krnl_applyWatermark(program, "apply_watermark", &err));
-    cl_kernel krnl = krnl_applyWatermark.get();
+    cl::Program program(context, devices, bins);
+    cl::Kernel kernel(program,"apply_watermark");
 
     // For Allocating Buffer to specific Global Memory Bank, user has to use cl_mem_ext_ptr_t
     // and provide the Banks
     //
     cl_mem_ext_ptr_t inExt, outExt;  // Declaring two extensions for both buffers
-    inExt.flags  = 0; // argument index ( 0 means that this buffer will be passed to argument 0 of the kernel )
-    outExt.flags = 1; // argument index ( 1 means that this buffer will be passed to argument 1 of the kernel )
+    inExt.flags  = XCL_MEM_DDR_BANK0; // Specify Bank0 Memory for input memory
+    outExt.flags = XCL_MEM_DDR_BANK1; // Specify Bank1 Memory for output Memory
     // Setting input and output objects
-    inExt.obj = inputImage.data(); // pointer to data
+    inExt.obj = inputImage.data(); 
     outExt.obj = outImage.data();
     
-    // Setting kernel handle to param 
-    inExt.param = krnl ; outExt.param = krnl; 
+    // Setting param to zero 
+    inExt.param = 0 ; outExt.param = 0; 
 
     //Allocate Buffer in Bank0 of Global Memory for Input Image using Xilinx Extension
-    OCL_CHECK(err, cl::Buffer buffer_inImage(context, CL_MEM_READ_ONLY | CL_MEM_EXT_PTR_XILINX | CL_MEM_USE_HOST_PTR,
-            image_size_bytes, &inExt, &err));
+    cl::Buffer buffer_inImage(context, CL_MEM_READ_ONLY | CL_MEM_EXT_PTR_XILINX | CL_MEM_USE_HOST_PTR,
+            image_size_bytes, &inExt);
     //Allocate Buffer in Bank1 of Global Memory for Input Image using Xilinx Extension
-    OCL_CHECK(err, cl::Buffer buffer_outImage(context, CL_MEM_WRITE_ONLY | CL_MEM_EXT_PTR_XILINX | CL_MEM_USE_HOST_PTR,
-            image_size_bytes, &outExt, &err));
+    cl::Buffer buffer_outImage(context, CL_MEM_WRITE_ONLY | CL_MEM_EXT_PTR_XILINX | CL_MEM_USE_HOST_PTR,
+            image_size_bytes, &outExt);
 
     std::vector<cl::Memory> inBufVec, outBufVec;
     inBufVec.push_back(buffer_inImage);
     outBufVec.push_back(buffer_outImage);
 
     //Copy input Image to device global memory
-    OCL_CHECK(err, err = q.enqueueMigrateMemObjects(inBufVec, 0 /* 0 means from host*/));
-
-    // Set the kernel arguments
-    int arg_index = 0;
-    OCL_CHECK(err, err = krnl_applyWatermark.setArg(arg_index++, buffer_inImage));
-    OCL_CHECK(err, err = krnl_applyWatermark.setArg(arg_index++, buffer_outImage));
-    OCL_CHECK(err, err = krnl_applyWatermark.setArg(arg_index++, width));
-    OCL_CHECK(err, err = krnl_applyWatermark.setArg(arg_index++, height));
-
+    q.enqueueMigrateMemObjects(inBufVec, 0 /* 0 means from host*/); 
+    
+    auto krnl_applyWatermark= cl::KernelFunctor<cl::Buffer&, cl::Buffer& ,int,int>(kernel);
+    
     //Launch the Kernel
-    OCL_CHECK(err, err = q.enqueueTask(krnl_applyWatermark));
+    krnl_applyWatermark(cl::EnqueueArgs(q,cl::NDRange(1,1,1), cl::NDRange(1,1,1)), 
+            buffer_inImage, buffer_outImage, width, height);
 
     //Copy Result from Device Global Memory to Host Local Memory
-    OCL_CHECK(err, err = q.enqueueMigrateMemObjects(outBufVec, CL_MIGRATE_MEM_OBJECT_HOST));
-    OCL_CHECK(err, err = q.finish());
+    q.enqueueMigrateMemObjects(outBufVec, CL_MIGRATE_MEM_OBJECT_HOST);
+    q.finish();
 //OPENCL HOST CODE AREA END
 
     //Compare Golden Image with Output image

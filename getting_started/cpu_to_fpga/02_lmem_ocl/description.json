@@ -11,17 +11,14 @@
     "libs": [
         "xcl2"
     ],
-    "host_exe": "host",
-    "containers" : [
-    {
-     "name" : "mmult",
-     "accelerators": [
+    "em_cmd": "./host",
+    "hw_cmd": "../../../utility/nimbix/nimbix-run.py -- ./host",
+    "accelerators": [
         {
+            "container": "mmult", 
             "name": "mmult", 
             "location": "src/mmult.cl"
         }
-      ]
-     }         
     ],
     "contributors" : [
         {

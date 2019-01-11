@@ -36,6 +36,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using namespace std;
 using namespace sda;
+using namespace sda::cl;
 using namespace sda::utils;
 
 static void print_huffman_encoded_data(vector<u8> data) {
@@ -106,7 +107,7 @@ static bool unit_test_codec(ICodec* pHuffmanCodec, ICodec* pHuffmanCodecGold) {
 		string out_str;
 		string gold_str;
 
-		pHuffmanCodecGold->enc_str(msgs[i], gold_data);
+		int gold = pHuffmanCodecGold->enc_str(msgs[i], gold_data);
 		int res = pHuffmanCodec->enc_str(msgs[i], encoded_data);
 		res &= pHuffmanCodecGold->dec_str(encoded_data, out_str);
 
@@ -141,7 +142,10 @@ int main(int argc, char* argv[]) {
 	//parse commandline
 	CmdLineParser parser;
 	parser.addSwitch("--bitmap", "-b", "input bitmap file path", "rect_1024.bmp");
+	parser.addSwitch("--platform-name", "-p", "OpenCl platform vendor name", "xilinx");
+	parser.addSwitch("--device-name", "-d", "OpenCl device name", "fpga0");
 	parser.addSwitch("--kernel-file", "-k", "OpenCl kernel file to use");
+	parser.addSwitch("--select-device", "-s", "Select from multiple matched devices [0-based index]", "0");
 	parser.addSwitch("--number-of-runs", "-n", "Number of times the kernel runs on the device to compute the average.", "1");
 	parser.setDefaultKey("--kernel-file");
 	parser.parse(argc, argv);
@@ -155,11 +159,14 @@ int main(int argc, char* argv[]) {
 
 	//read settings
 	string strBitmapFP = parser.value("bitmap");
+	string strPlatformName = parser.value("platform-name");
+	string strDeviceName = parser.value("device-name");
 
 	int nruns = parser.value_to_int("number-of-runs");
+	int idxSelectedDevice = parser.value_to_int("select-device");
   
 	LogInfo("Chosen bitmap file is %s",strBitmapFP.c_str());
-	HuffmanOptimized huffman(strBitmapFP);
+	HuffmanOptimized huffman(strPlatformName, strDeviceName, idxSelectedDevice, strKernelFullPath, strBitmapFP);
 
 	LogInfo("Perform some unit tests before the actual image decode, encode");
 	unit_test_codec(&huffman,&cpuonly);

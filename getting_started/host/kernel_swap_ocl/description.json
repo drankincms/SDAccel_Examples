@@ -12,33 +12,32 @@
     "libs": [
         "xcl2"
     ],
-    "host_exe": "vmulvadd",
-    "containers": [
-	{
-	"name": "krnl_vmul",
-	"accelerators": [
+    "em_cmd" : "./vmulvadd",
+    "hw_cmd" : "../../../utility/nimbix/nimbix-run.py -- ./vmulvadd",
+    "accelerators": [
         {
             "name": "krnl_vmul", 
             "location": "src/krnl_vmul.cl", 
             "container": "krnl_vmul"
-        }
-	]
-	}, 
+        }, 
         {
-	"name": "krnl_vadd",
-	"accelerators": [
-	{
             "name": "krnl_vadd", 
             "location": "src/krnl_vadd.cl", 
             "container": "krnl_vadd"
         }
-    	]
-	}
     ],
     "contributors" : [
         {
             "group": "Xilinx",
             "url" : "http://www.xilinx.com"
         }
+    ],
+    "revision" : [
+        {
+            "date" : "SEP2017",
+            "version": "1.0",
+            "description": "Initial Xilinx Release"
+        }
     ]
+
 }

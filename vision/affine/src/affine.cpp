@@ -58,7 +58,6 @@ int main(int argc, char** argv)
 	size_t vector_size_bytes = sizeof(unsigned short) * Y_SIZE*X_SIZE;
 	std::vector<unsigned short,aligned_allocator<unsigned short>>
 	input_image(Y_SIZE*X_SIZE);
-	cl_int err;
 
 	std::vector<unsigned short,aligned_allocator<unsigned short>> output_image(Y_SIZE*X_SIZE);
 
@@ -80,33 +79,32 @@ int main(int argc, char** argv)
 
 	std::vector<cl::Device> devices = xcl::get_xil_devices();
 	cl::Device device = devices[0];
-	OCL_CHECK(err, cl::Context context(device, NULL, NULL, NULL, &err));
+	cl::Context context(device);
   
-	OCL_CHECK(err, cl::CommandQueue q(context, device,CL_QUEUE_PROFILING_ENABLE, &err));
+	cl::CommandQueue q(context, device,CL_QUEUE_PROFILING_ENABLE);
 
-	OCL_CHECK(err, std::string device_name = device.getInfo<CL_DEVICE_NAME>(&err));
+	std::string device_name = device.getInfo<CL_DEVICE_NAME>(); 
 	std::string binaryFile = xcl::find_binary_file(device_name,"krnl_affine");
 	cl::Program::Binaries bins = xcl::import_binary_file(binaryFile);
 	devices.resize(1);
-	OCL_CHECK(err, cl::Program program(context, devices, bins, NULL, &err));
-	OCL_CHECK(err, cl::Kernel krnl(program,"affine_kernel", &err));
+	cl::Program program(context, devices, bins);
+	cl::Kernel krnl(program,"affine_kernel");
 
 	std::vector<cl::Memory> inBufVec, outBufVec;
-	OCL_CHECK(err, cl::Buffer imageToDevice(context,CL_MEM_USE_HOST_PTR | CL_MEM_READ_ONLY, vector_size_bytes, input_image.data(), &err));
-	OCL_CHECK(err, cl::Buffer imageFromDevice(context,CL_MEM_USE_HOST_PTR | CL_MEM_WRITE_ONLY,vector_size_bytes, output_image.data(), &err));
+	cl::Buffer imageToDevice(context,CL_MEM_USE_HOST_PTR | CL_MEM_READ_ONLY, vector_size_bytes, input_image.data());
+	cl::Buffer imageFromDevice(context,CL_MEM_USE_HOST_PTR | CL_MEM_WRITE_ONLY,vector_size_bytes, output_image.data());
 
 	inBufVec.push_back(imageToDevice);
 	outBufVec.push_back(imageFromDevice);
 
 	/* Copy input vectors to memory */
-	OCL_CHECK(err, err = q.enqueueMigrateMemObjects(inBufVec,0/* 0 means from host*/));
+	q.enqueueMigrateMemObjects(inBufVec,0/* 0 means from host*/);
 
-	// Set the kernel arguments
-	OCL_CHECK(err, err = krnl.setArg(0, imageToDevice));
-	OCL_CHECK(err, err = krnl.setArg(1, imageFromDevice));
-
-	// Launch the kernel
-	OCL_CHECK(err, err = q.enqueueTask(krnl));
+// Set the kernel arguments
+	krnl.setArg(0, imageToDevice);
+	krnl.setArg(1, imageFromDevice);
+// Launch the kernel 
+	q.enqueueTask(krnl);
 
 // Read back the image from the kernel
 	std::cout << "Reading output image and writing to file...\n";
@@ -117,7 +115,7 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	OCL_CHECK(err, err = q.enqueueMigrateMemObjects(outBufVec,CL_MIGRATE_MEM_OBJECT_HOST));
+	q.enqueueMigrateMemObjects(outBufVec,CL_MIGRATE_MEM_OBJECT_HOST);
 	q.finish();
 
 	printf("   Writing RAW Image\n");
