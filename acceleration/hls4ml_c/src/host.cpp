@@ -29,16 +29,16 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "xcl2.hpp"
 #include <vector>
-#include "parameters.h"
+#include <parameters.h>
+#include "kernel_params.h"
 
-#define DATA_SIZE_IN Y_INPUTS_1*N_CHAN_1
+#define DATA_SIZE_IN N_INPUTS
 #define DATA_SIZE_OUT N_OUTPUTS
-#define STREAMSIZE 8
 
 int main(int argc, char** argv)
 {
 
-    int nevents = 20;
+    int nevents = 1;
     if (argc > 1) nevents = atoi(argv[1]);
 
     size_t vector_size_in_bytes = sizeof(data32_t) * DATA_SIZE_IN * STREAMSIZE;
@@ -52,10 +52,9 @@ int main(int argc, char** argv)
     std::vector<data32_t,aligned_allocator<data32_t>> source_in(DATA_SIZE_IN*STREAMSIZE);
     std::vector<data32_t,aligned_allocator<data32_t>> source_hw_results(DATA_SIZE_OUT*STREAMSIZE);
 
-    // Create the test data 
+    //initialize
     for(int j = 0 ; j < DATA_SIZE_IN*STREAMSIZE ; j++){
-        source_in[j] = (data32_t)(12.34*(j+DATA_SIZE_IN*STREAMSIZE*1));
-        //source_in[j] = (data32_t)(rand()/10000000.);
+        source_in[j] = 0;
     }
     for(int j = 0 ; j < DATA_SIZE_OUT*STREAMSIZE ; j++){
         source_hw_results[j] = 0;
@@ -115,15 +114,12 @@ int main(int argc, char** argv)
         // Create the test data 
         for(int j = 0 ; j < DATA_SIZE_IN*STREAMSIZE ; j++){
             source_in[j] = (data32_t)(12.34*(j+DATA_SIZE_IN*STREAMSIZE*(i+1)));
-            //source_in[j] = (data32_t)(rand()/10000000.);
+            //this is just a random number to produce dummy input data
         }
         for(int j = 0 ; j < DATA_SIZE_OUT*STREAMSIZE ; j++){
             source_hw_results[j] = 0;
         }
     
-        //std::vector<cl::Memory> inBufVec, outBufVec;
-        //inBufVec.push_back(buffer_in);
-        //outBufVec.push_back(buffer_output);
         // Copy input data to device global memory
         q.enqueueMigrateMemObjects(inBufVec,0/* 0 means from host*/);
         // Launch the Kernel
@@ -135,7 +131,7 @@ int main(int argc, char** argv)
         q.finish();
         for (int j = 0 ; j < STREAMSIZE ; j++){
             for (int k = 0 ; k < DATA_SIZE_OUT ; k++){
-    	    std::cout << source_hw_results[j*DATA_SIZE_OUT + k] << " ";
+    	        std::cout << source_hw_results[j*DATA_SIZE_OUT + k] << " ";
             }
             std::cout << std::endl;
         }

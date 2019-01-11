@@ -49,24 +49,8 @@ Makefile
 README.md
 description.json
 src/aws_hls4ml.cpp
-src/conv1d_small.cpp
-src/conv1d_small.h
 src/host.cpp
-src/nnet_utils/nnet_activation.h
-src/nnet_utils/nnet_common.h
-src/nnet_utils/nnet_conv.h
-src/nnet_utils/nnet_layer.h
-src/parameters.h
-src/weights/b1.h
-src/weights/b2.h
-src/weights/b3.h
-src/weights/b4.h
-src/weights/b5.h
-src/weights/w1.h
-src/weights/w2.h
-src/weights/w3.h
-src/weights/w4.h
-src/weights/w5.h
+src/kernel_params.h
 ```
 
 ## 5. COMPILATION AND EXECUTION

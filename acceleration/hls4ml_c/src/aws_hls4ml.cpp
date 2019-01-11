@@ -34,60 +34,9 @@ Description:
     This is vector addition example to demonstrate how HLS optimizations are used in kernel. 
 *******************************************************************************/
 
-#include "parameters.h"
-#include "conv1d_small.h"
-#include <hls_stream.h>
-
-#define STREAMSIZE 8
-
-// Read Data from Global Memory and write into Stream inStream
-static void read_input(const data32_t *in, hls::stream<input_t> &inStream)
-{
-    mem_rd: for (int i = 0 ; i < STREAMSIZE*Y_INPUTS_1*N_CHAN_1 ; i++){
-#pragma HLS pipeline
-//#pragma HLS LOOP_TRIPCOUNT min=4096 max=4096
-        //Blocking write command to inStream
-        inStream << (input_t)in[i];
-    }
-}
-
-// Read Input data from inStream and write the result into outStream
-static void compute_cnn(hls::stream<input_t> &inStream ,
-        hls::stream<result_t> &outStream)
-{
-    execute: for (int i = 0 ; i < STREAMSIZE ; i++){
-#pragma HLS pipeline
-//#pragma HLS LOOP_TRIPCOUNT min=4096 max=4096
-        //Blocking read command from inStream and Blocking write command 
-        //to outStream 
-        input_t vin_buffer[Y_INPUTS_1][N_CHAN_1];    // Local memory to store vector1
-        result_t vout_buffer[N_OUTPUTS];  // Local Memory to store result
-//#pragma HLS UNROLL
-        for (int j = 0 ; j < Y_INPUTS_1 ; j++){
-//#pragma HLS UNROLL
-            for(int k = 0 ; k < N_CHAN_1 ; k++){
-                vin_buffer[j][k] = inStream.read();
-            }
-        }
-        hls4ml: conv1d_small(vin_buffer,vout_buffer);
-        for (int j = 0 ; j < N_OUTPUTS ; j++ ){
-            outStream << vout_buffer[j];
-        }
-    }
-}
-
-// Read result from outStream and write the result to Global Memory
-static void write_result(data32_t *out, hls::stream<result_t>
-        &outStream)
-{
-    mem_wr: for (int i = 0 ; i < STREAMSIZE*N_OUTPUTS ; i++){
-#pragma HLS pipeline
-//#pragma HLS LOOP_TRIPCOUNT min=4096 max=4096
-        //Blocking read command to inStream
-        out[i] = (data32_t)outStream.read();
-    }
-}
-
+#include <parameters.h>
+#include <myproject.h>
+#include "kernel_params.h"
 
 /*
     Vector Addition Kernel Implementation 
@@ -115,17 +64,32 @@ void aws_hls4ml(
 #pragma HLS INTERFACE s_axilite port=out  bundle=control
 #pragma HLS INTERFACE s_axilite port=return bundle=control
 
-    hls::stream<input_t> inStream;
-    hls::stream<result_t> outStream;
-#pragma HLS STREAM variable=inStream  depth= 320
-#pragma HLS STREAM variable=outStream depth= 40
-//320 = STREAMSIZE (8) * Y_INPUTS_1 (10) * N_CHAN_1 (4)
-//40  = STREAMSIZE (8) * N_OUTPUTS (5)
+    unsigned short insize, outsize;
 
+    input_t in_buf[STREAMSIZE][N_INPUTS];
+    result_t out_buf[STREAMSIZE][N_OUTPUTS];
+//these will get partitioned properly in the hls4ml code
+
+    for (int i = 0; i < STREAMSIZE; i++) {
+#pragma HLS LOOP UNROLL
+        for (int j = 0; j < N_INPUTS; j++) {
+#pragma HLS LOOP UNROLL
+            in_buf[i][j] = (input_t)in[i*N_INPUTS+j];
+        }
+    }
+
+    for (int i = 0; i < STREAMSIZE; i++) {
 #pragma HLS dataflow
-    read_input(in,inStream);
-    compute_cnn(inStream,outStream);
-    write_result(out,outStream);
+        hls4ml: myproject(in_buf[i],out_buf[i],insize,outsize);
+    }
+
+    for (int i = 0; i < STREAMSIZE; i++) {
+#pragma HLS LOOP UNROLL
+        for (int j = 0; j < N_OUTPUTS; j++) {
+#pragma HLS LOOP UNROLL
+            out[i*N_OUTPUTS+j] = (data32_t)out_buf[i][j];
+        }
+    }
 
 }
 }
