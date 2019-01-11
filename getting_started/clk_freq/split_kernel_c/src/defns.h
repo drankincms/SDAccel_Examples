@@ -27,8 +27,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 **********/
 
-#ifndef __DEFNS_H__
-#define __DEFNS_H__
+#pragma once
 
 #define CHANNELS 3
 #define MAX_WIDTH 640
@@ -49,7 +48,12 @@ typedef unsigned int uint;
 #include "median_helper.h"
 #include "sketch_helper.h"
 
-#endif
+/* The values assigned to the TRIPCOUNT identifiers must be changed as per the input image size. 
+ For instance, it has been set for the image with dimenstions 128x128 */
+//TRIPCOUNT identifiers
+const unsigned int c_width = 128;
+const unsigned int c_height = 128;
+
 
 
 

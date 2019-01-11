@@ -12,14 +12,17 @@
     "libs": [
         "xcl2","bitmap"
     ],
-    "em_cmd": "./host",
-    "hw_cmd": "../../../utility/nimbix/nimbix-run.py -- ./host",
-    "accelerators": [
+    "host_exe": "host",
+    "containers": [
+    {
+        "name": "vadd",        
+        "accelerators": [
         {
-            "container": "vadd", 
             "name": "vadd", 
             "location": "src/vadd.cpp"
         }
+       ]
+     }                
     ],
     "contributors" : [
         {

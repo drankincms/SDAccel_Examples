@@ -9,8 +9,7 @@
     "os": [
         "Linux"
     ],
-    "em_cmd": "./data_transfer",
-    "hw_cmd": "../../../utility/nimbix/nimbix-run.py -- ./data_transfer",
+    "host_exe": "data_transfer",
     "libs": [
         "xcl2"
     ],

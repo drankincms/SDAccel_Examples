@@ -63,6 +63,9 @@ Kernel Description :
 //Maximum Array Size
 #define MAX_SIZE 64
 
+//TRIPCOUNT indentifier
+const unsigned int c_size = MAX_SIZE;
+ 
 // Computes matrix multiply
 // C = AxB, where A, B and C are square matrices of dimension (sizexsize)
 extern "C"{
@@ -96,16 +99,16 @@ extern "C"{
         // Burst reads on input matrices from global memory
         // Burst read for matrix A
         readA: for(int itr = 0 , i = 0 , j =0; itr < size * size; itr++, j++){
-        #pragma HLS PIPELINE
-        #pragma HLS LOOP_TRIPCOUNT min=4096 max=4096
+        #pragma HLS PIPELINE II=1
+        #pragma HLS LOOP_TRIPCOUNT min=c_size*c_size max=c_size*c_size
             if(j == size) { j = 0 ; i++; }
             A[i][j] = in1[itr];
         }
 
         // Burst read for matrix B
         readB: for(int itr  =0, i = 0, j = 0; itr < size * size; itr++, j++) {
-        #pragma HLS PIPELINE
-        #pragma HLS LOOP_TRIPCOUNT min=4096 max=4096
+        #pragma HLS PIPELINE II=1
+        #pragma HLS LOOP_TRIPCOUNT min=c_size*c_size max=c_size*c_size
             if(j == size) { j = 0 ; i++; }
             B[i][j] = in2[itr];
         }
@@ -142,10 +145,10 @@ extern "C"{
         // Calculate matrix multiplication using local data buffer based on input size
         // and write results into local buffer for C
         lreorder1: for (int i = 0; i < size; i++) {
-        #pragma HLS LOOP_TRIPCOUNT min=64 max=64
+        #pragma HLS LOOP_TRIPCOUNT min=c_size max=c_size
             lreorder2: for (int k = 0; k < size; k++) {
-            #pragma HLS LOOP_TRIPCOUNT min=64 max=64
-            #pragma HLS PIPELINE
+            #pragma HLS LOOP_TRIPCOUNT min=c_size max=c_size
+            #pragma HLS PIPELINE II=1
                 lreorder3: for (int j = 0; j < MAX_SIZE; j++) {
                     int result = (k == 0) ? 0 : temp_sum[j];
                     result += A[i][k] * B[k][j];
@@ -158,8 +161,8 @@ extern "C"{
         // Burst write from output matrices to global memory
         // Burst write from matrix C
         writeC: for(int itr = 0 , i = 0, j = 0; itr < size * size; itr++, j++) {
-            #pragma HLS PIPELINE
-            #pragma HLS LOOP_TRIPCOUNT min=4096 max=4096
+            #pragma HLS PIPELINE II=1
+            #pragma HLS LOOP_TRIPCOUNT min=c_size*c_size max=c_size*c_size
             if(j == size) { j = 0 ; i++; }
             out[itr] = C[i][j];
         }

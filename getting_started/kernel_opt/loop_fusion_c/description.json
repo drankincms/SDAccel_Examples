@@ -12,8 +12,8 @@
     "libs": [
         "xcl2"
     ],
-    "em_cmd": "./loop_fusion",
-    "hw_cmd": "../../utility/nimbix/nimbix-run.py -- ./loop_fusion",
+    "nboard":["xilinx_kcu1500_dynamic"],
+    "host_exe": "loop_fusion",
     "containers": [
         {
             "name": "nearest_neighbor",
@@ -33,13 +33,6 @@
         {
             "group": "Xilinx",
             "url" : "http://www.xilinx.com"
-        }
-    ],
-    "revision" : [
-        {
-            "date" : "MAY2017",
-            "version": "1.0",
-            "description": "Initial Xilinx Release"
         }
     ]
 }

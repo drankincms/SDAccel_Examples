@@ -28,7 +28,10 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 **********/
 
 // Maximum Matrix Dimension Supported by Kernel
-#define MAX_DIM 64
+#define MAX_DIM 16
+
+//TRIPCOUNT identifier
+const unsigned int c_dim = MAX_DIM;
 
 extern "C" {
 void matmul_partition(
@@ -49,9 +52,9 @@ void matmul_partition(
     int B[MAX_DIM * MAX_DIM];
     int C[MAX_DIM * MAX_DIM]; 
     //Cyclic Partition for A as matrix multiplication needs row-wise parallel access
-    #pragma HLS ARRAY_PARTITION variable=A dim=1 cyclic factor=64
+    #pragma HLS ARRAY_PARTITION variable=A dim=1 cyclic factor=16
     //Block Partition for B as matrix multiplication needs column-wise parallel access
-    #pragma HLS ARRAY_PARTITION variable=B dim=1 block factor=64
+    #pragma HLS ARRAY_PARTITION variable=B dim=1 block factor=16
 
     //As A and B Matrix are partitioned with the factor of MAX_DIM, so to get 
     // parallel row/column access, input square matrix[dimXdim] should be written
@@ -60,8 +63,8 @@ void matmul_partition(
     // Burst read for matrix A
     readA:
     for (int itr = 0, i = 0, j = 0; itr < dim * dim; itr++, j++) {
-    #pragma HLS PIPELINE
-    #pragma HLS LOOP_TRIPCOUNT min=4096 max=4096
+    #pragma HLS PIPELINE II=1
+    #pragma HLS LOOP_TRIPCOUNT min=c_dim*c_dim max=c_dim*c_dim
         if (j == dim) { j = 0; i++; }
         A[i*MAX_DIM + j] = in1[itr];
     }
@@ -69,25 +72,25 @@ void matmul_partition(
     // Burst read for matrix B
     readB:
     for (int itr = 0, i = 0, j = 0; itr < dim * dim; itr++, j++) {
-    #pragma HLS PIPELINE
-    #pragma HLS LOOP_TRIPCOUNT min=4096 max=4096
+    #pragma HLS PIPELINE II=1
+    #pragma HLS LOOP_TRIPCOUNT min=c_dim*c_dim max=c_dim*c_dim
         if (j == dim) { j = 0; i++; }
         B[i * MAX_DIM + j] = in2[itr];
     }
 
     lreorder1:
     for (int i = 0; i < dim; i++) {
-    #pragma HLS LOOP_TRIPCOUNT min=64 max=64
+    #pragma HLS LOOP_TRIPCOUNT min=c_dim max=c_dim
         //As A and B are partition correctly so loop pipelining is applied
         // at 2nd level loop and which will eventually unroll the lower loop
         lreorder2 :
         for (int j = 0; j < dim ; j++) {
-        #pragma HLS PIPELINE
-        #pragma HLS LOOP_TRIPCOUNT min=64 max=64
+        #pragma HLS PIPELINE II=1
+        #pragma HLS LOOP_TRIPCOUNT min=c_dim max=c_dim
             int result = 0;
             lreorder3:
             for (int k = 0; k < MAX_DIM; k++) {
-            #pragma HLS LOOP_TRIPCOUNT min=64 max=64
+            #pragma HLS LOOP_TRIPCOUNT min=c_dim max=c_dim
                 result += A[i * MAX_DIM +  k] * B[k * MAX_DIM + j];
             }
             C[i*MAX_DIM + j] = result;
@@ -98,8 +101,8 @@ void matmul_partition(
     // Burst write from matrix C
     writeC:
     for (int itr = 0, i = 0, j = 0; itr < dim * dim; itr++, j++) {
-    #pragma HLS PIPELINE
-    #pragma HLS LOOP_TRIPCOUNT min=4096 max=4096
+    #pragma HLS PIPELINE II=1
+    #pragma HLS LOOP_TRIPCOUNT min=c_dim*c_dim max=c_dim*c_dim
         if (j == dim) { j = 0; i++; }
         out[itr] = C[i * MAX_DIM + j];
     }

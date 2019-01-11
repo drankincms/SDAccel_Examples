@@ -11,9 +11,30 @@
     "libs": [
         "xcl2"
     ],
+    "config_make": "config.mk",
+    "output_files": "tmp_kernel_pack* packaged_kernel*",
+    "host_exe": "host",
+    "host_srcs": "src/host.cpp",
     "targets": ["hw", "hw_emu"],
-    "em_cmd": "./host",
-    "hw_cmd": "../../../utility/nimbix/nimbix-run.py -- ./host",
+    "containers": [
+    {
+	"name": "adder",
+	"accelerators": [
+	{
+	"name": "input",
+	"kernel_type": "RTL"
+	},
+	{
+	"name": "adder",
+	"kernel_type": "RTL"
+	},
+	{
+	"name": "output",
+	"kernel_type": "RTL"
+	}
+	]
+    }
+    ],
     "contributors" : [
         {
             "group": "Xilinx",
@@ -27,6 +48,5 @@
             "description": "Initial Xilinx Release"
         }
     ],
-    "match_makefile": "false",
     "sdx_gui": false
 }

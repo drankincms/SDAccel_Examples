@@ -1,49 +1,107 @@
-#Repo containing utility and libs repository to use
-COMMON_REPO := ../../../
+.PHONY: help
 
-# Make file Includes
-include $(COMMON_REPO)/utility/boards.mk
-include $(COMMON_REPO)/libs/xcl2/xcl2.mk
-include $(COMMON_REPO)/libs/opencl/opencl.mk
-include $(COMMON_REPO)/libs/bitmap/bitmap.mk
+help::
+	$(ECHO) "Makefile Usage:"
+	$(ECHO) "  make all TARGET=<sw_emu/hw_emu/hw> DEVICE=<FPGA platform>"
+	$(ECHO) "      Command to generate the design for specified Target and Device."
+	$(ECHO) ""
+	$(ECHO) "  make clean "
+	$(ECHO) "      Command to remove the generated non-hardware files."
+	$(ECHO) ""
+	$(ECHO) "  make cleanall"
+	$(ECHO) "      Command to remove all the generated files."
+	$(ECHO) ""
+	$(ECHO) "  make check TARGET=<sw_emu/hw_emu/hw> DEVICE=<FPGA platform>"
+	$(ECHO) "      Command to run application in emulation."
+	$(ECHO) ""
 
-#set this value to GOOD for better design timing
-#or set its value to BAD for degraded design timing
-KFLOW:=GOOD
+# Points to Utility Directory
+COMMON_REPO = ../../../
+ABS_COMMON_REPO = $(shell readlink -f $(COMMON_REPO))
 
-# Host files and setting
-host_SRCS=./src/host.cpp $(xcl2_SRCS) $(bitmap_SRCS)
-host_HDRS=$(xcl2_HDRS) $(bitmap_HDRS) 
-host_CXXFLAGS= -I./src/ -std=c++0x -I./src/ $(xcl2_CXXFLAGS) $(opencl_CXXFLAGS) $(bitmap_CXXFLAGS)
-host_LDFLAGS=$(opencl_LDFLAGS)
+TARGETS := hw
+TARGET := $(TARGETS)
+DEVICE := $(DEVICES)
+XCLBIN := ./xclbin
 
-EXES=host
+include ./utils.mk
 
-# Kernel
-apply_watermark_BAD_SRCS=./src/apply_watermark.cl
-apply_watermark_BAD_CLFLAGS=-DBAD_DESIGN=1
+DSA := $(call device2sandsa, $(DEVICE))
+BUILD_DIR := ./_x.$(TARGET).$(DSA)
 
-apply_watermark_GOOD_SRCS=./src/apply_watermark.cl
-apply_watermark_GOOD_CLFLAGS=-DBAD_DESIGN=0
+CXX := $(XILINX_SDX)/bin/xcpp
+XOCC := $(XILINX_SDX)/bin/xocc
+
+#Include Libraries
+include $(ABS_COMMON_REPO)/libs/opencl/opencl.mk
+include $(ABS_COMMON_REPO)/libs/xcl2/xcl2.mk
+include $(ABS_COMMON_REPO)/libs/bitmap/bitmap.mk
+CXXFLAGS += $(xcl2_CXXFLAGS) $(bitmap_CXXFLAGS)
+LDFLAGS += $(xcl2_LDFLAGS) $(bitmap_LDFLAGS)
+HOST_SRCS += $(xcl2_SRCS) $(bitmap_SRCS)
+CXXFLAGS += $(opencl_CXXFLAGS) -Wall -O0 -g -std=c++14
+LDFLAGS += $(opencl_LDFLAGS)
+
+HOST_SRCS += src/host.cpp
+
+# Host compiler global settings
+CXXFLAGS += -fmessage-length=0
+LDFLAGS += -lrt -lstdc++ 
+
+# Kernel compiler global settings
+CLFLAGS += -t $(TARGET) --platform $(DEVICE) --save-temps --temp_dir $(BUILD_DIR) 
+CLFLAGS += -DBAD_DESIGN=0
 
 
-apply_watermark_GOOD_XOS=apply_watermark_GOOD
-apply_watermark_BAD_XOS=apply_watermark_BAD
+EXECUTABLE = host
 
-XOS=apply_watermark_$(KFLOW)
-XCLBINS=apply_watermark_$(KFLOW)
+EMCONFIG_DIR = $(XCLBIN)/$(DSA)
 
-# check
-check_EXE=host
-check_XCLBINS=apply_watermark_$(KFLOW)
-check_ARGS=apply_watermark_$(KFLOW) ./data/input.bmp ./data/golden.bmp
+BINARY_CONTAINERS += $(XCLBIN)/apply_watermark_GOOD.$(TARGET).$(DSA).xclbin
+BINARY_CONTAINER_apply_watermark_GOOD_OBJS += $(XCLBIN)/apply_watermark.$(TARGET).$(DSA).xo
 
-CHECKS=check
+CP = cp -rf
+DATA = ./data
 
-EXTRA_CLEAN=./output.bmp
+.PHONY: all clean cleanall docs emconfig
+all: check-devices $(EXECUTABLE) $(BINARY_CONTAINERS) emconfig
 
+.PHONY: exe
+exe: $(EXECUTABLE)
 
-CHECKS=check
+# Building kernel
+$(XCLBIN)/apply_watermark.$(TARGET).$(DSA).xo: src/apply_watermark.cl
+	mkdir -p $(XCLBIN)
+	$(XOCC) $(CLFLAGS) -c -k apply_watermark -I'$(<D)' -o'$@' '$<'
+$(XCLBIN)/apply_watermark_GOOD.$(TARGET).$(DSA).xclbin: $(BINARY_CONTAINER_apply_watermark_GOOD_OBJS)
+	mkdir -p $(XCLBIN)
+	$(XOCC) $(CLFLAGS) -l $(LDCLFLAGS) --nk apply_watermark:1 -o'$@' $(+)
 
-include $(COMMON_REPO)/utility/rules.mk
+# Building Host
+$(EXECUTABLE): $(HOST_SRCS) $(HOST_HDRS)
+	mkdir -p $(XCLBIN)
+	$(CXX) $(CXXFLAGS) $(HOST_SRCS) $(HOST_HDRS) -o '$@' $(LDFLAGS)
 
+emconfig:$(EMCONFIG_DIR)/emconfig.json
+$(EMCONFIG_DIR)/emconfig.json:
+	emconfigutil --platform $(DEVICE) --od $(EMCONFIG_DIR)
+
+check: all
+ifeq ($(TARGET),$(filter $(TARGET),sw_emu hw_emu))
+	$(CP) $(EMCONFIG_DIR)/emconfig.json .
+	XCL_EMULATION_MODE=$(TARGET) ./$(EXECUTABLE) apply_watermark_GOOD ./data/input.bmp ./data/golden.bmp
+else
+	 ./$(EXECUTABLE) apply_watermark_GOOD ./data/input.bmp ./data/golden.bmp
+endif
+	sdx_analyze profile -i sdaccel_profile_summary.csv -f html
+
+# Cleaning stuff
+clean:
+	-$(RMDIR) $(EXECUTABLE) $(XCLBIN)/{*sw_emu*,*hw_emu*} 
+	-$(RMDIR) sdaccel_* TempConfig system_estimate.xtxt *.rpt
+	-$(RMDIR) src/*.ll _xocc_* .Xil emconfig.json dltmp* xmltmp* *.log *.jou *.wcfg *.wdb
+
+cleanall: clean
+	-$(RMDIR) $(XCLBIN)
+	-$(RMDIR) _x.*
+	-$(RMDIR) ./output.bmp 

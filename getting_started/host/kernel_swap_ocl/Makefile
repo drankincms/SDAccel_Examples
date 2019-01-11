@@ -1,41 +1,112 @@
-# vaddvmul Application
+.PHONY: help
 
-COMMON_REPO:=../../../
-include $(COMMON_REPO)/utility/boards.mk
-include $(COMMON_REPO)/libs/opencl/opencl.mk
-include $(COMMON_REPO)/libs/xcl2/xcl2.mk
+help::
+	$(ECHO) "Makefile Usage:"
+	$(ECHO) "  make all TARGET=<sw_emu/hw_emu/hw> DEVICE=<FPGA platform>"
+	$(ECHO) "      Command to generate the design for specified Target and Device."
+	$(ECHO) ""
+	$(ECHO) "  make clean "
+	$(ECHO) "      Command to remove the generated non-hardware files."
+	$(ECHO) ""
+	$(ECHO) "  make cleanall"
+	$(ECHO) "      Command to remove all the generated files."
+	$(ECHO) ""
+	$(ECHO) "  make check TARGET=<sw_emu/hw_emu/hw> DEVICE=<FPGA platform>"
+	$(ECHO) "      Command to run application in emulation."
+	$(ECHO) ""
 
-# vmulvadd Host Application
-vmulvadd_SRCS=./src/host.cpp $(xcl2_SRCS)
-vmulvadd_HDRS=$(xcl2_HDRS)
-vmulvadd_EXE=vmulvadd
-vmulvadd_CXXFLAGS=-I./src/ $(opencl_CXXFLAGS) $(xcl2_CXXFLAGS)
-vmulvadd_LDFLAGS=$(opencl_LDFLAGS)
+# Points to Utility Directory
+COMMON_REPO = ../../../
+ABS_COMMON_REPO = $(shell readlink -f $(COMMON_REPO))
 
-EXES=vmulvadd
+TARGETS := hw
+TARGET := $(TARGETS)
+DEVICE := $(DEVICES)
+XCLBIN := ./xclbin
 
-# vmul Kernel
-krnl_vmul_SRCS=./src/krnl_vmul.cl
+include ./utils.mk
 
-# vadd Kernel
-krnl_vadd_SRCS=./src/krnl_vadd.cl
+DSA := $(call device2sandsa, $(DEVICE))
+BUILD_DIR := ./_x.$(TARGET).$(DSA)
 
-XOS=krnl_vmul krnl_vadd
+CXX := $(XILINX_SDX)/bin/xcpp
+XOCC := $(XILINX_SDX)/bin/xocc
 
-# vmul Kernel
-krnl_vmul_XOS=krnl_vmul
+#Include Libraries
+include $(ABS_COMMON_REPO)/libs/opencl/opencl.mk
+include $(ABS_COMMON_REPO)/libs/xcl2/xcl2.mk
+CXXFLAGS += $(xcl2_CXXFLAGS)
+LDFLAGS += $(xcl2_LDFLAGS)
+HOST_SRCS += $(xcl2_SRCS)
+CXXFLAGS += $(opencl_CXXFLAGS) -Wall -O0 -g -std=c++14
+LDFLAGS += $(opencl_LDFLAGS)
 
-# vadd Kernel
-krnl_vadd_XOS=krnl_vadd
+HOST_SRCS += src/host.cpp
 
-XCLBINS=krnl_vmul krnl_vadd
+# Host compiler global settings
+CXXFLAGS += -fmessage-length=0
+LDFLAGS += -lrt -lstdc++ 
+
+# Kernel compiler global settings
+CLFLAGS += -t $(TARGET) --platform $(DEVICE) --save-temps --temp_dir $(BUILD_DIR) 
 
 
-# check
-check_EXE=vmulvadd
-check_XCLBINS=krnl_vmul krnl_vadd
+EXECUTABLE = vmulvadd
 
-CHECKS=check
+EMCONFIG_DIR = $(XCLBIN)/$(DSA)
 
-include $(COMMON_REPO)/utility/rules.mk
+BINARY_CONTAINERS += $(XCLBIN)/krnl_vmul.$(TARGET).$(DSA).xclbin
+BINARY_CONTAINER_krnl_vmul_OBJS += $(XCLBIN)/krnl_vmul.$(TARGET).$(DSA).xo
+BINARY_CONTAINERS += $(XCLBIN)/krnl_vadd.$(TARGET).$(DSA).xclbin
+BINARY_CONTAINER_krnl_vadd_OBJS += $(XCLBIN)/krnl_vadd.$(TARGET).$(DSA).xo
+
+CP = cp -rf
+
+.PHONY: all clean cleanall docs emconfig
+all: check-devices $(EXECUTABLE) $(BINARY_CONTAINERS) emconfig
+
+.PHONY: exe
+exe: $(EXECUTABLE)
+
+# Building kernel
+$(XCLBIN)/krnl_vmul.$(TARGET).$(DSA).xo: src/krnl_vmul.cl
+	mkdir -p $(XCLBIN)
+	$(XOCC) $(CLFLAGS) -c -k krnl_vmul -I'$(<D)' -o'$@' '$<'
+$(XCLBIN)/krnl_vadd.$(TARGET).$(DSA).xo: src/krnl_vadd.cl
+	mkdir -p $(XCLBIN)
+	$(XOCC) $(CLFLAGS) -c -k krnl_vadd -I'$(<D)' -o'$@' '$<'
+$(XCLBIN)/krnl_vmul.$(TARGET).$(DSA).xclbin: $(BINARY_CONTAINER_krnl_vmul_OBJS)
+	mkdir -p $(XCLBIN)
+	$(XOCC) $(CLFLAGS) -l $(LDCLFLAGS) --nk krnl_vmul:1 -o'$@' $(+)
+$(XCLBIN)/krnl_vadd.$(TARGET).$(DSA).xclbin: $(BINARY_CONTAINER_krnl_vadd_OBJS)
+	mkdir -p $(XCLBIN)
+	$(XOCC) $(CLFLAGS) -l $(LDCLFLAGS) --nk krnl_vadd:1 -o'$@' $(+)
+
+# Building Host
+$(EXECUTABLE): $(HOST_SRCS) $(HOST_HDRS)
+	mkdir -p $(XCLBIN)
+	$(CXX) $(CXXFLAGS) $(HOST_SRCS) $(HOST_HDRS) -o '$@' $(LDFLAGS)
+
+emconfig:$(EMCONFIG_DIR)/emconfig.json
+$(EMCONFIG_DIR)/emconfig.json:
+	emconfigutil --platform $(DEVICE) --od $(EMCONFIG_DIR)
+
+check: all
+ifeq ($(TARGET),$(filter $(TARGET),sw_emu hw_emu))
+	$(CP) $(EMCONFIG_DIR)/emconfig.json .
+	XCL_EMULATION_MODE=$(TARGET) ./$(EXECUTABLE)
+else
+	 ./$(EXECUTABLE)
+endif
+	sdx_analyze profile -i sdaccel_profile_summary.csv -f html
+
+# Cleaning stuff
+clean:
+	-$(RMDIR) $(EXECUTABLE) $(XCLBIN)/{*sw_emu*,*hw_emu*} 
+	-$(RMDIR) sdaccel_* TempConfig system_estimate.xtxt *.rpt
+	-$(RMDIR) src/*.ll _xocc_* .Xil emconfig.json dltmp* xmltmp* *.log *.jou *.wcfg *.wdb
+
+cleanall: clean
+	-$(RMDIR) $(XCLBIN)
+	-$(RMDIR) _x.*
 

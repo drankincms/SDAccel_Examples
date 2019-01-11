@@ -10,12 +10,13 @@
         "Linux"
     ],
     "libs": [
-        "xcl",
-        "oclHelper"
+        "xcl2"
     ],
-    "em_cmd": "./concurrent_execution",
-    "hw_cmd": "../../../utility/nimbix/nimbix-run.py -- ./concurrent_execution",
-    "accelerators": [
+    "host_exe": "concurrent_execution",
+    "containers": [	
+	{
+	"name": "matrix_ops", 
+	"accelerators": [
         {
             "name": "madd", 
             "location": "src/matrix_ops.cl",
@@ -31,18 +32,13 @@
             "location": "src/matrix_ops.cl",
             "container": "matrix_ops"
         }
+    	]
+	}
     ],
     "contributors" : [
         {
             "group": "Xilinx",
             "url" : "http://www.xilinx.com"
-        }
-    ],
-    "revision" : [
-        {
-            "date" : "DEC2016",
-            "version": "1.0",
-            "description": "Initial Xilinx Release"
         }
     ]
 }

@@ -69,15 +69,18 @@ Kernel Description (Good Example) :
 
 // Work load of each Work_Item
 #define BUFFER_SIZE 5120
-
+#define DATA_SIZE 81920
 //Number of Compute Units (CU)
 #define NUM_CU 8
+
+//TRIPCOUNT indentifier
+const int c_size = DATA_SIZE/(BUFFER_SIZE*NUM_CU);
 
 typedef unsigned int uint;
 
 extern "C"
 {
-    void vadd(
+    void vadd_GOOD(
             const int *in1, // Read-Only Vector 1
             const int *in2, // Read-Only Vector 2
             int *out,       // Output Result
@@ -107,21 +110,21 @@ extern "C"
         
         // Computes vector addition operation iteratively over entire data set of the work item
         for(int offset = 0; offset < size; offset += NUM_CU*BUFFER_SIZE){
-        #pragma HLS LOOP_TRIPCOUNT min=2 max=2
+        #pragma HLS LOOP_TRIPCOUNT min=c_size max=c_size
             // Enables burst reads on input vectors from global memory
             // Each Work_Item asynchronously moves its work load from global memory
             // to local memory (in1_lcl, in2_lcl) associated per each Work_Group
             
             // Burst read for in1_lcl
             readIn1: for(int itr = 0 , i = 0 , j =0; itr < NUM_CU*BUFFER_SIZE; itr++, j++){
-            #pragma HLS PIPELINE
+            #pragma HLS PIPELINE II=1
                 if(j == BUFFER_SIZE) { j = 0 ; i++; }
                 in1_lcl[i][j] = in1[offset + itr];
             }
             
             // Burst read for in2_lcl
             readIn2: for(int itr = 0 , i = 0 , j =0; itr < NUM_CU*BUFFER_SIZE; itr++, j++){
-            #pragma HLS PIPELINE
+            #pragma HLS PIPELINE II=1
                 if(j == BUFFER_SIZE) { j = 0 ; i++; }
                 in2_lcl[i][j] = in2[offset + itr];
             }
@@ -143,7 +146,7 @@ extern "C"
             // is to do 8 (NUM_CU) operations and compute 8 results in parallel.
             
             vadd1: for(int i = 0; i < BUFFER_SIZE; i++){
-            #pragma HLS PIPELINE
+            #pragma HLS PIPELINE II=1
                 vadd2: for(int j = 0; j < NUM_CU; j++){
                     out_lcl[j][i] = in1_lcl[j][i] + in2_lcl[j][i];
                 }
@@ -155,7 +158,7 @@ extern "C"
             
             // Burst write from out_lcl
             writeOut: for(int itr = 0 , i = 0 , j =0; itr < NUM_CU*BUFFER_SIZE; itr++, j++){
-            #pragma HLS PIPELINE
+            #pragma HLS PIPELINE II=1
                 if(j == BUFFER_SIZE) { j = 0 ; i++; }
                 out[offset + itr] = out_lcl[i][j];
             }
