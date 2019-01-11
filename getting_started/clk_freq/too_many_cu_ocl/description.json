@@ -12,13 +12,14 @@
     "libs": [
         "xcl2"
     ],
-    "host_exe": "host",
+    "em_cmd": "./host",
+    "hw_cmd": "../../../utility/nimbix/nimbix-run.py -- ./host",
     "containers": [
         {
             "name": "vadd_GOOD",
             "accelerators" : [
                 {
-                   "name": "vadd_GOOD",
+                   "name": "vadd",
                    "location": "src/vadd.cl"
                 }
            ]
@@ -27,8 +28,7 @@
             "name": "vadd_BAD",
             "accelerators" : [
                 {
-                   "name": "vadd_BAD",
-                   "num_compute_units": "8",
+                   "name": "vadd",
                    "location": "src/vadd_bad.cl"
                 }
            ]
@@ -39,6 +39,13 @@
         {
             "group": "Xilinx",
             "url" : "http://www.xilinx.com"
+        }
+    ],
+    "revision" : [
+        {
+            "date" : "DEC2016",
+            "version": "1.0",
+            "description": "Initial Xilinx Release"
         }
     ]
 }

@@ -28,10 +28,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 **********/
 
 // Maximum Matrix Dimension Supported by Kernel
-#define MAX_DIM 16
-
-//TRIPCOUNT identifier
-const unsigned int c_dim = MAX_DIM;
+#define MAX_DIM 64
 
 extern "C" {
 // Computes matrix multiply
@@ -72,15 +69,15 @@ void matmul_naive(
 
     lreorder1:
     for (int i = 0; i < dim; i++) {
-    #pragma HLS LOOP_TRIPCOUNT min=c_dim max=c_dim
+    #pragma HLS LOOP_TRIPCOUNT min=64 max=64
         lreorder2 :
         for (int j = 0; j < MAX_DIM; j++) {
-        #pragma HLS LOOP_TRIPCOUNT min=c_dim max=c_dim
+        #pragma HLS LOOP_TRIPCOUNT min=64 max=64
             int result = 0;
             lreorder3:
             for (int k = 0; k < dim; k++) {
             #pragma HLS PIPELINE
-            #pragma HLS LOOP_TRIPCOUNT min=c_dim max=c_dim
+            #pragma HLS LOOP_TRIPCOUNT min=64 max=64
                 result += A[i * dim +  k] * B[k * dim + j];
             }
             C[i*dim + j] = result;
@@ -91,7 +88,7 @@ void matmul_naive(
     writeC:
     for (int i = 0; i < dim * dim; i++) {
     #pragma HLS PIPELINE
-    #pragma HLS LOOP_TRIPCOUNT min=c_dim*c_dim max=c_dim*c_dim
+    #pragma HLS LOOP_TRIPCOUNT min=4096 max=4096
         out[i] = C[i];
     }
 }

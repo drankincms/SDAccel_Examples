@@ -123,10 +123,7 @@ int main(int argc, char **argv) {
         parser.printHelp();
         exit(EXIT_FAILURE);
     }
-
-    FPGA_KMEANS* fpga = new FPGA_KMEANS();
-
-    fpga->fpga_kmeans_setup(global_size);
+    fpga_kmeans_setup(global_size);
 
     /* ============== I/O begin ==============*/
     /* get nfeatures and npoints */
@@ -211,9 +208,7 @@ int main(int argc, char **argv) {
     
     //FPGA Based cluster
     cluster_centres = NULL;
-    index = cluster(
-                    fpga,
-                    npoints,            /* number of data points */
+    index = cluster(npoints,            /* number of data points */
                     nfeatures,          /* number of features for each point */
                     features,           /* array: [npoints][nfeatures] */
                     min_nclusters,      /* range of min to max number of clusters */
@@ -271,11 +266,10 @@ int main(int argc, char **argv) {
         }
     }
     
+    
     /* free up memory */
-    delete fpga;
     free(features[0]);
     free(features);    
- 
     return(0);
 }
 

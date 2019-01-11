@@ -27,7 +27,8 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 **********/
 
-#pragma once
+#ifndef __BOOST_HELPER_H__
+#define __BOOST_HELPER_H__
 
 // This file contains helper functions for performing boost filtering
 
@@ -109,3 +110,4 @@ void getBoostWindow(uint *rgbWindow, uint linebuf[BOOST_WINDOW][MAX_WIDTH], unsi
     }
 }
 
+#endif

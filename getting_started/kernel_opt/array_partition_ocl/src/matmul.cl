@@ -28,7 +28,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 **********/
 
 // Maximum Array Size
-#define MAX_SIZE 16
+#define MAX_SIZE 64
 
 // Naive implementation of matrix multiplication 
 // In this implementation array partition is not done

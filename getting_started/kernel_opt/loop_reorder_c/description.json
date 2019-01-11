@@ -12,18 +12,14 @@
     "libs": [
         "xcl2"
     ],
-    "host_exe": "host",
-    "containers": [
-    {
-        "name": "mmult",        
-        "accelerators": [
+    "em_cmd": "./host",
+    "hw_cmd": "../../../utility/nimbix/nimbix-run.py -- ./host",
+    "accelerators": [
         {
+            "container": "mmult", 
             "name": "mmult", 
-            "location": "src/mmult.cpp",
-            "clflags": "--xp prop:solution.hls_pre_tcl=data/hls_config.tcl"                
+            "location": "src/mmult.cpp"
         }
-       ]
-     }
     ],
     "contributors" : [
         {
@@ -31,5 +27,11 @@
             "url" : "http://www.xilinx.com"
         }
     ],
-    "sdx_gui": false
+    "revision" : [
+        {
+            "date" : "DEC2016",
+            "version": "1.0",
+            "description": "Initial Xilinx Release"
+        }
+    ]
 }

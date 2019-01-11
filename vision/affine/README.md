@@ -19,7 +19,7 @@ Affine transformation is a linear mapping method that preserves points, straight
 
 ### PERFORMANCE
 Task|Xilinx Execution Time (in ns)|GTX 780 Execution Time (in ns)
------|-----|-----
+----|-----|-----
 Host to Device|1,009,087|1,828,606
 Device to Host|774,714|563,740
 Device to Kernel|46,460,532|195,938,535
@@ -35,16 +35,15 @@ where examples is the name of the directory where the repository will be stored 
 ## 3. SOFTWARE AND SYSTEM REQUIREMENTS
 Board | Device Name | Software Version
 ------|-------------|-----------------
-Xilinx Virtex UltraScale+ VCU1526|xilinx_u250_xdma_201820_1|SDAccel 2018.2.xdf
-Xilinx Kintex UltraScale KCU1500|xilinx_kcu1500_dynamic|SDAccel 2018.2.xdf
-Xilinx Virtex UltraScale+ VCU1525|xilinx_vcu1525_dynamic|SDAccel 2018.2.xdf
-Xilinx Virtex UltraScale+ VCU1525|xilinx_u200_xdma_201820_1|SDAccel 2018.2.xdf
+Xilinx Kintex UltraScale KCU1500|xilinx:kcu1500:dynamic|SDAccel 2017.4
 
 
 *NOTE:* The board/device used for compilation can be changed by adding the DEVICES variable to the make command as shown below
 ```
-make DEVICES=<.xpfm file path> all
+make DEVICES=<device name>
 ```
+where the *DEVICES* variable accepts either 1 device from the table above or a comma separated list of device names.
+
 ***OpenCV for Example Applications***
 
 This application requires OpenCV runtime libraries. If the host does not have OpenCV installed use the Xilinx included libraries with the following command:
@@ -61,10 +60,8 @@ Makefile
 README.md
 data/CT-MONO2-16-brain.raw
 description.json
-sdaccel.ini
 src/affine.cpp
 src/krnl_affine.cl
-utils.mk
 ```
 
 ## 5. COMPILATION AND EXECUTION
@@ -73,7 +70,7 @@ As part of the capabilities available to an application developer, SDAccel inclu
 These modes, which are named sw_emu and hw_emu, allow the developer to profile and evaluate the performance of a design before compiling for board execution.
 It is recommended that all applications are executed in at least the sw_emu mode before being compiled and executed on an FPGA board.
 ```
-make all TARGET=<sw_emu|hw_emu> DEVICE=<FPGA Platform>
+make TARGETS=<sw_emu|hw_emu> all
 ```
 where
 ```
@@ -88,7 +85,7 @@ It is recommended that for this example the user skips running hardware emulatio
 
 The makefile for the application can directly executed the application with the following command:
 ```
-make check TARGET=<sw_emu|hw_emu> DEVICE=<FPGA Platform>
+make TARGETS=<sw_emu|hw_emu> check
 
 ```
 where
@@ -105,7 +102,7 @@ To manually configure the environment to run the application, set the following
 ```
 export LD_LIBRARY_PATH=$XILINX_SDX/runtime/lib/x86_64/:$LD_LIBRARY_PATH
 export XCL_EMULATION_MODE=<sw_emu|hw_emu>
-emconfigutil --platform 'xilinx_vcu1525_dynamic' --nd 1
+emconfigutil --xdevice 'xilinx:kcu1500:dynamic' --nd 1
 ```
 Once the environment has been configured, the application can be executed by
 ```
@@ -115,7 +112,7 @@ This is the same command executed by the check makefile rule
 ### Compiling for Application Execution in the FPGA Accelerator Card
 The command to compile the application for execution on the FPGA acceleration board is
 ```
-make all DEVICE=<FPGA Platform>
+make all
 ```
 The default target for the makefile is to compile for hardware. Therefore, setting the TARGETS option is not required.
 *NOTE:* Compilation for application execution in hardware generates custom logic to implement the functionality of the kernels in an application.
@@ -125,6 +122,7 @@ It is typical for hardware compile times to range from 30 minutes to a couple of
 FPGA acceleration boards have been deployed to the cloud. For information on how to execute the example within a specific cloud, take a look at the following guides.
 * [AWS F1 Application Execution on Xilinx Virtex UltraScale Devices]
 * [Nimbix Application Execution on Xilinx Kintex UltraScale Devices]
+* [IBM SuperVessel Research Cloud on Xilinx Virtex Devices]
 
 
 ## 7. SUPPORT
@@ -155,3 +153,4 @@ This example is written by developers at
 [SDaccel GUI README]: ../../GUIREADME.md
 [AWS F1 Application Execution on Xilinx Virtex UltraScale Devices]: https://github.com/aws/aws-fpga/blob/master/SDAccel/README.md
 [Nimbix Application Execution on Xilinx Kintex UltraScale Devices]: ../../utility/nimbix/README.md
+[IBM SuperVessel Research Cloud on Xilinx Virtex Devices]: http://bcove.me/6pp0o482

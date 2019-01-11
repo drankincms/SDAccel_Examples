@@ -86,7 +86,6 @@ void verify(vector<int,aligned_allocator<int>> &gold,
 // kernels for FPGA devices using matmul.
 int main(int argc, char **argv) {
     static const int dims = 64;
-    cl_int err;
 
     /* less iteration for emulation mode */
     int iteration = xcl::is_emulation() ? 2: 100; 
@@ -109,66 +108,64 @@ int main(int argc, char **argv) {
     std::vector<cl::Device> devices = xcl::get_xil_devices();
     cl::Device device = devices[0];
 
-    OCL_CHECK(err, cl::Context context(device, NULL, NULL, NULL, &err));
-    OCL_CHECK(err, cl::CommandQueue q(context, device, CL_QUEUE_PROFILING_ENABLE, &err));
-    OCL_CHECK(err, std::string device_name = device.getInfo<CL_DEVICE_NAME>(&err)); 
+    cl::Context context(device);
+    cl::CommandQueue q(context, device, CL_QUEUE_PROFILING_ENABLE);
+    std::string device_name = device.getInfo<CL_DEVICE_NAME>(); 
 
     //Create Program 
     std::string binaryFile = xcl::find_binary_file(device_name,"matmul");
     cl::Program::Binaries bins = xcl::import_binary_file(binaryFile);
     devices.resize(1);
-    OCL_CHECK(err, cl::Program program(context, devices, bins, NULL, &err));
+    cl::Program program(context, devices, bins);
 
     // compute the size of array in bytes
     size_t array_size_bytes = dims * dims * sizeof(int);
-    OCL_CHECK(err, cl::Buffer buffer_a(context,CL_MEM_USE_HOST_PTR | CL_MEM_READ_ONLY, 
-            array_size_bytes, A.data(), &err));
-    OCL_CHECK(err, cl::Buffer buffer_b(context,CL_MEM_USE_HOST_PTR | CL_MEM_READ_ONLY, 
-            array_size_bytes, B.data(), &err));
-    OCL_CHECK(err, cl::Buffer buffer_c(context,CL_MEM_USE_HOST_PTR | CL_MEM_WRITE_ONLY,
-            array_size_bytes, C.data(), &err));
+    cl::Buffer buffer_a(context,CL_MEM_USE_HOST_PTR | CL_MEM_READ_ONLY, 
+            array_size_bytes, A.data());
+    cl::Buffer buffer_b(context,CL_MEM_USE_HOST_PTR | CL_MEM_READ_ONLY, 
+            array_size_bytes, B.data());
+    cl::Buffer buffer_c(context,CL_MEM_USE_HOST_PTR | CL_MEM_WRITE_ONLY,
+            array_size_bytes, C.data());
     std::vector<cl::Memory> inBufVec, outBufVec;
     inBufVec.push_back(buffer_a);
     inBufVec.push_back(buffer_b);
     outBufVec.push_back(buffer_c);
 
     //Copy input data to device global memory
-    OCL_CHECK(err, err = q.enqueueMigrateMemObjects(inBufVec,0/* 0 means from host*/));
+    q.enqueueMigrateMemObjects(inBufVec,0/* 0 means from host*/);
 
-    OCL_CHECK(err, cl::Kernel matmul_kernel(program, "matmul_naive", &err));
-    OCL_CHECK(err, err = matmul_kernel.setArg(0,buffer_a));
-    OCL_CHECK(err, err = matmul_kernel.setArg(1,buffer_b));
-    OCL_CHECK(err, err = matmul_kernel.setArg(2,buffer_c));
-    OCL_CHECK(err, err = matmul_kernel.setArg(3,dims));
+    cl::Kernel matmul_kernel(program, "matmul_naive");
+    matmul_kernel.setArg(0,buffer_a);
+    matmul_kernel.setArg(1,buffer_b);
+    matmul_kernel.setArg(2,buffer_c);
+    matmul_kernel.setArg(3,dims);
 
     cl::Event event;
     uint64_t nstimestart, nstimeend;
     uint64_t matmul_time = 0;
     for (int i = 0 ; i < iteration ; i++){
-        OCL_CHECK(err, err = q.enqueueTask(matmul_kernel,NULL,&event));
-        OCL_CHECK(err, err = q.enqueueMigrateMemObjects(outBufVec,CL_MIGRATE_MEM_OBJECT_HOST));
+        q.enqueueTask(matmul_kernel,NULL,&event);
+        q.enqueueMigrateMemObjects(outBufVec,CL_MIGRATE_MEM_OBJECT_HOST);
         q.finish();
-        
-        OCL_CHECK(err, err = event.getProfilingInfo<uint64_t>(CL_PROFILING_COMMAND_START,&nstimestart));
-        OCL_CHECK(err, err = event.getProfilingInfo<uint64_t>(CL_PROFILING_COMMAND_END,&nstimeend));
+        event.getProfilingInfo<uint64_t>(CL_PROFILING_COMMAND_START,&nstimestart);
+        event.getProfilingInfo<uint64_t>(CL_PROFILING_COMMAND_END,&nstimeend);
         matmul_time += nstimeend-nstimestart;
         verify(gold, C);
     }
 
-    OCL_CHECK(err, cl::Kernel matmul_partition_kernel(program, "matmul_partition", &err));
-    OCL_CHECK(err, err = matmul_partition_kernel.setArg(0,buffer_a));
-    OCL_CHECK(err, err = matmul_partition_kernel.setArg(1,buffer_b));
-    OCL_CHECK(err, err = matmul_partition_kernel.setArg(2,buffer_c));
-    OCL_CHECK(err, err = matmul_partition_kernel.setArg(3,dims));
+    cl::Kernel matmul_partition_kernel(program, "matmul_partition");
+    matmul_partition_kernel.setArg(0,buffer_a);
+    matmul_partition_kernel.setArg(1,buffer_b);
+    matmul_partition_kernel.setArg(2,buffer_c);
+    matmul_partition_kernel.setArg(3,dims);
 
     uint64_t matmul_partition_time = 0;
     for (int i = 0 ; i < iteration ; i++){
-        OCL_CHECK(err, err = q.enqueueTask(matmul_partition_kernel,NULL,&event));
-        OCL_CHECK(err, err = q.enqueueMigrateMemObjects(outBufVec,CL_MIGRATE_MEM_OBJECT_HOST));
+        q.enqueueTask(matmul_partition_kernel,NULL,&event);
+        q.enqueueMigrateMemObjects(outBufVec,CL_MIGRATE_MEM_OBJECT_HOST);
         q.finish();
-        
-        OCL_CHECK(err, err = event.getProfilingInfo<uint64_t>(CL_PROFILING_COMMAND_START,&nstimestart));
-        OCL_CHECK(err, err = event.getProfilingInfo<uint64_t>(CL_PROFILING_COMMAND_END,&nstimeend));
+        event.getProfilingInfo<uint64_t>(CL_PROFILING_COMMAND_START,&nstimestart);
+        event.getProfilingInfo<uint64_t>(CL_PROFILING_COMMAND_END,&nstimeend);
         matmul_partition_time += nstimeend-nstimestart;
         verify(gold, C);
     }

@@ -37,6 +37,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using namespace std;
 using namespace sda;
+using namespace sda::cl;
 using namespace sda::utils;
 
 #include "sw.h"

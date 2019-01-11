@@ -174,7 +174,7 @@ void __attribute__((always_inline))
 }
 
 __kernel __attribute__ ((reqd_work_group_size(1, 1, 1)))
-void cnn_GOOD(
+void cnn(
         const __global int *image,      // Read-Only Image 
         const __global int *weights,    // Read-Only Weight Matrix
         __global int *out,              // Output Filters/Images

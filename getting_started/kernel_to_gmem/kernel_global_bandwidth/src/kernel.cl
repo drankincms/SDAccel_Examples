@@ -30,21 +30,17 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 kernel __attribute__ ((reqd_work_group_size(1,1,1)))
 void bandwidth(__global uint16  * __restrict input0,
                __global uint16  * __restrict output0,
-#if NDDR_BANKS == 3
-               __global uint16  * __restrict output1,               
-#elif NDDR_BANKS > 3       
+#ifdef USE_4DDR
                __global uint16  * __restrict input1,
                __global uint16  * __restrict output1,
 #endif
                ulong num_blocks)
 {
     __attribute__((xcl_pipeline_loop))
-    for (ulong blockindex = 0; blockindex < num_blocks; blockindex++) {
+    for (ulong blockindex=0; blockindex<num_blocks; blockindex++) {
         uint16 temp0 = input0[blockindex];
         output0[blockindex] = temp0;
-#if NDDR_BANKS == 3
-        output1[blockindex] = temp0;
-#elif NDDR_BANKS > 3
+#ifdef USE_4DDR
         uint16 temp1 = input1[blockindex];
         output1[blockindex] = temp1;
 #endif

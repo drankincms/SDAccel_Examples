@@ -67,7 +67,6 @@ Kernel Description (Bad Example) :
 
 // Work load of each Work_Item
 #define BUFFER_SIZE 5120
-#define DATA_SIZE 81920
 
 #define WORK_GROUP 8 
 #define WORK_ITEM_PER_GROUP 1
@@ -75,14 +74,11 @@ Kernel Description (Bad Example) :
 //Number of Compute Units (CU)
 #define NUM_CU 8
 
-//TRIPCOUNT identifier
-const int c_size = DATA_SIZE/(BUFFER_SIZE*NUM_CU);
-
 typedef unsigned int uint;
 
 extern "C"
 {
-    void vadd_BAD(
+    void vadd(
             const int *in1, // Read-Only Vector 1
             const int *in2, // Read-Only Vector 2
             int *out,       // Output Result
@@ -114,7 +110,7 @@ extern "C"
         int global_size = WORK_GROUP;
          // Computes vector addition operation iteratively over entire data set
         for(int offset = 0; offset < size; offset += BUFFER_SIZE*global_size){
-        #pragma HLS LOOP_TRIPCOUNT min=c_size max=c_size
+        #pragma HLS LOOP_TRIPCOUNT min=2 max=2
             
             // Enables burst reads on input vectors from global memory
             // Each Work_Item asynchronously moves its work load from global memory

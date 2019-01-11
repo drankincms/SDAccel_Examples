@@ -1,108 +1,41 @@
-.PHONY: help
-
-help::
-	$(ECHO) "Makefile Usage:"
-	$(ECHO) "  make all TARGET=<sw_emu/hw_emu/hw> DEVICE=<FPGA platform>"
-	$(ECHO) "      Command to generate the design for specified Target and Device."
-	$(ECHO) ""
-	$(ECHO) "  make clean "
-	$(ECHO) "      Command to remove the generated non-hardware files."
-	$(ECHO) ""
-	$(ECHO) "  make cleanall"
-	$(ECHO) "      Command to remove all the generated files."
-	$(ECHO) ""
-	$(ECHO) "  make check TARGET=<sw_emu/hw_emu/hw> DEVICE=<FPGA platform>"
-	$(ECHO) "      Command to run application in emulation."
-	$(ECHO) ""
-
-# Points to Utility Directory
-COMMON_REPO = ../../../
-ABS_COMMON_REPO = $(shell readlink -f $(COMMON_REPO))
-
-TARGETS := hw
-TARGET := $(TARGETS)
-DEVICE := $(DEVICES)
-XCLBIN := ./xclbin
-
-include ./utils.mk
-
-DSA := $(call device2sandsa, $(DEVICE))
-BUILD_DIR := ./_x.$(TARGET).$(DSA)
-
-CXX := $(XILINX_SDX)/bin/xcpp
-XOCC := $(XILINX_SDX)/bin/xocc
-
-#Include Libraries
-include $(ABS_COMMON_REPO)/libs/opencl/opencl.mk
-include $(ABS_COMMON_REPO)/libs/xcl2/xcl2.mk
-CXXFLAGS += $(xcl2_CXXFLAGS)
-LDFLAGS += $(xcl2_LDFLAGS)
-HOST_SRCS += $(xcl2_SRCS)
-CXXFLAGS += $(opencl_CXXFLAGS) -Wall -O0 -g -std=c++14
-LDFLAGS += $(opencl_LDFLAGS)
-
-HOST_SRCS += src/host.cpp
-
-# Host compiler global settings
-CXXFLAGS += -fmessage-length=0
-LDFLAGS += -lrt -lstdc++ 
-
-# Kernel compiler global settings
-CLFLAGS += -t $(TARGET) --platform $(DEVICE) --save-temps --temp_dir $(BUILD_DIR) 
 
 
-EXECUTABLE = array_partition
+COMMON_REPO := ../../..
 
-EMCONFIG_DIR = $(XCLBIN)/$(DSA)
+#Common Includes
+include $(COMMON_REPO)/utility/boards.mk
+include $(COMMON_REPO)/libs/xcl2/xcl2.mk
+include $(COMMON_REPO)/libs/opencl/opencl.mk
 
-BINARY_CONTAINERS += $(XCLBIN)/matmul.$(TARGET).$(DSA).xclbin
-BINARY_CONTAINER_matmul_OBJS += $(XCLBIN)/matmul_naive.$(TARGET).$(DSA).xo
-BINARY_CONTAINER_matmul_OBJS += $(XCLBIN)/matmul_partition.$(TARGET).$(DSA).xo
+# Host Application
+array_partition_SRCS=./src/host.cpp $(xcl2_SRCS)
+array_partition_CXXFLAGS=-I./src/ $(opencl_CXXFLAGS) $(xcl2_CXXFLAGS) -std=c++0x
+array_partition_LDFLAGS=$(opencl_LDFLAGS)
 
-CP = cp -rf
+EXES=array_partition
 
-.PHONY: all clean cleanall docs emconfig
-all: check-devices $(EXECUTABLE) $(BINARY_CONTAINERS) emconfig
+# Kernel
+matmul_naive_SRCS=./src/matmul.cpp
+matmul_naive_CLFLAGS= -k matmul_naive
 
-.PHONY: exe
-exe: $(EXECUTABLE)
+matmul_partition_SRCS=./src/matmul_partition.cpp
+matmul_partition_CLFLAGS=-k matmul_partition
 
-# Building kernel
-$(XCLBIN)/matmul_naive.$(TARGET).$(DSA).xo: src/matmul.cpp
-	mkdir -p $(XCLBIN)
-	$(XOCC) $(CLFLAGS) -c -k matmul_naive -I'$(<D)' -o'$@' '$<'
-$(XCLBIN)/matmul_partition.$(TARGET).$(DSA).xo: src/matmul_partition.cpp
-	mkdir -p $(XCLBIN)
-	$(XOCC) $(CLFLAGS) -c -k matmul_partition -I'$(<D)' -o'$@' '$<'
-$(XCLBIN)/matmul.$(TARGET).$(DSA).xclbin: $(BINARY_CONTAINER_matmul_OBJS)
-	mkdir -p $(XCLBIN)
-	$(XOCC) $(CLFLAGS) -l $(LDCLFLAGS) --nk matmul_naive:1 --nk matmul_partition:1 -o'$@' $(+)
+XOS=matmul_naive matmul_partition
 
-# Building Host
-$(EXECUTABLE): $(HOST_SRCS) $(HOST_HDRS)
-	mkdir -p $(XCLBIN)
-	$(CXX) $(CXXFLAGS) $(HOST_SRCS) $(HOST_HDRS) -o '$@' $(LDFLAGS)
+# xclbin
+matmul_XOS=matmul_naive matmul_partition
+matmul_NDEVICES=xilinx:kcu1500:dynamic xilinx:vcu1525:dynamic xilinx_kcu1500_dynamic_5_0 xilinx_vcu1525_dynamic_5_0
 
-emconfig:$(EMCONFIG_DIR)/emconfig.json
-$(EMCONFIG_DIR)/emconfig.json:
-	emconfigutil --platform $(DEVICE) --od $(EMCONFIG_DIR)
+XCLBINS=matmul
 
-check: all
-ifeq ($(TARGET),$(filter $(TARGET),sw_emu hw_emu))
-	$(CP) $(EMCONFIG_DIR)/emconfig.json .
-	XCL_EMULATION_MODE=$(TARGET) ./$(EXECUTABLE)
-else
-	 ./$(EXECUTABLE)
-endif
-	sdx_analyze profile -i sdaccel_profile_summary.csv -f html
+EXTRA_CLEAN=./output.png
 
-# Cleaning stuff
-clean:
-	-$(RMDIR) $(EXECUTABLE) $(XCLBIN)/{*sw_emu*,*hw_emu*} 
-	-$(RMDIR) sdaccel_* TempConfig system_estimate.xtxt *.rpt
-	-$(RMDIR) src/*.ll _xocc_* .Xil emconfig.json dltmp* xmltmp* *.log *.jou *.wcfg *.wdb
+# check
+check_EXE=array_partition
+check_XCLBINS=matmul
+check_NDEVICES=$(matmul_NDEVICES)
 
-cleanall: clean
-	-$(RMDIR) $(XCLBIN)
-	-$(RMDIR) _x.*
-	-$(RMDIR) ./output.png 
+CHECKS=check
+
+include $(COMMON_REPO)/utility/rules.mk

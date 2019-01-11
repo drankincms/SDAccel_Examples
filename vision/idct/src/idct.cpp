@@ -239,9 +239,6 @@ void oclDct::init(cl_context   context,
   mDevice  = device;
   mKernel  = krnl;
   mQ       = q;
-  mBlockExt={0};
-  mQExt    ={0};
-  mOutExt  ={0};
   
   mNumBlocks64 = numBlocks64;
   
@@ -465,7 +462,7 @@ int main(int argc, char* argv[]) {
 
   if (argc != 2) {
     printf("Usage: %s "
-	   "./xclbin/krnl_idct.<emulation_mode>.<dsa>.xclbin\n",
+	   "./xclbin/idct_kernel.<emulation_mode>.<dsa>.xclbin\n",
 	   argv[0]);
     return EXIT_FAILURE;
   }

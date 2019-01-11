@@ -1,114 +1,43 @@
-.PHONY: help
+COMMON_REPO := ../../../
+#Common Includes
+include $(COMMON_REPO)/utility/boards.mk
+include $(COMMON_REPO)/libs/xcl2/xcl2.mk
+include $(COMMON_REPO)/libs/opencl/opencl.mk
+include $(COMMON_REPO)/libs/bitmap/bitmap.mk
 
-help::
-	$(ECHO) "Makefile Usage:"
-	$(ECHO) "  make all TARGET=<sw_emu/hw_emu/hw> DEVICE=<FPGA platform>"
-	$(ECHO) "      Command to generate the design for specified Target and Device."
-	$(ECHO) ""
-	$(ECHO) "  make clean "
-	$(ECHO) "      Command to remove the generated non-hardware files."
-	$(ECHO) ""
-	$(ECHO) "  make cleanall"
-	$(ECHO) "      Command to remove all the generated files."
-	$(ECHO) ""
-	$(ECHO) "  make check TARGET=<sw_emu/hw_emu/hw> DEVICE=<FPGA platform>"
-	$(ECHO) "      Command to run application in emulation."
-	$(ECHO) ""
+# Host Application
+host_SRCS=./src/host.cpp $(bitmap_SRCS) $(xcl2_SRCS)
+host_CXXFLAGS=-I./src/ $(xcl2_CXXFLAGS) $(opencl_CXXFLAGS) $(bitmap_CXXFLAGS)
+host_LDFLAGS=$(opencl_LDFLAGS)
+host_CXXFLAGS+=-Wall
 
-# Points to Utility Directory
-COMMON_REPO = ../../../
-ABS_COMMON_REPO = $(shell readlink -f $(COMMON_REPO))
+EXES=host
 
-TARGETS := hw
-TARGET := $(TARGETS)
-DEVICE := $(DEVICES)
-XCLBIN := ./xclbin
+# Kernel
+sketch_GOOD_SRCS=./src/sketch.cpp
+sketch_GOOD_CLFLAGS=-k process_image -I./src/
 
-include ./utils.mk
+sketch_BAD_SRCS=./src/sketch_bad.cpp
+sketch_BAD_CLFLAGS=-k process_image -I./src/
 
-DSA := $(call device2sandsa, $(DEVICE))
-BUILD_DIR := ./_x.$(TARGET).$(DSA)
+XOS=sketch_GOOD sketch_BAD
 
-CXX := $(XILINX_SDX)/bin/xcpp
-XOCC := $(XILINX_SDX)/bin/xocc
+# xclbin
+sketch_GOOD_XOS=sketch_GOOD
 
-#Include Libraries
-include $(ABS_COMMON_REPO)/libs/opencl/opencl.mk
-include $(ABS_COMMON_REPO)/libs/xcl2/xcl2.mk
-include $(ABS_COMMON_REPO)/libs/bitmap/bitmap.mk
-CXXFLAGS += $(xcl2_CXXFLAGS) $(bitmap_CXXFLAGS)
-LDFLAGS += $(xcl2_LDFLAGS) $(bitmap_LDFLAGS)
-HOST_SRCS += $(xcl2_SRCS) $(bitmap_SRCS)
-CXXFLAGS += $(opencl_CXXFLAGS) -Wall -O0 -g -std=c++14
-LDFLAGS += $(opencl_LDFLAGS)
+sketch_BAD_XOS=sketch_BAD
 
-HOST_SRCS += src/host.cpp
+XCLBINS=sketch_GOOD sketch_BAD
 
-# Host compiler global settings
-CXXFLAGS += -fmessage-length=0
-LDFLAGS += -lrt -lstdc++ 
+EXTRA_CLEAN=./output.bmp
 
-# Kernel compiler global settings
-CLFLAGS += -t $(TARGET) --platform $(DEVICE) --save-temps --temp_dir $(BUILD_DIR) 
+# check
+check_EXE=host
+check_XCLBINS=sketch_GOOD sketch_BAD
+check_ARGS=./data/car_128x128.bmp
+# Disable software emulation due to known issues
+check_NTARGETS=sw_emu
 
+CHECKS=check
 
-EXECUTABLE = host
-
-EMCONFIG_DIR = $(XCLBIN)/$(DSA)
-
-BINARY_CONTAINERS += $(XCLBIN)/sketch_GOOD.$(TARGET).$(DSA).xclbin
-BINARY_CONTAINER_sketch_GOOD_OBJS += $(XCLBIN)/sketch_GOOD.$(TARGET).$(DSA).xo
-BINARY_CONTAINERS += $(XCLBIN)/sketch_BAD.$(TARGET).$(DSA).xclbin
-BINARY_CONTAINER_sketch_BAD_OBJS += $(XCLBIN)/sketch_BAD.$(TARGET).$(DSA).xo
-
-CP = cp -rf
-DATA = ./data
-
-.PHONY: all clean cleanall docs emconfig
-all: check-devices $(EXECUTABLE) $(BINARY_CONTAINERS) emconfig
-
-.PHONY: exe
-exe: $(EXECUTABLE)
-
-# Building kernel
-$(XCLBIN)/sketch_GOOD.$(TARGET).$(DSA).xo: src/sketch.cpp
-	mkdir -p $(XCLBIN)
-	$(XOCC) $(CLFLAGS) -c -k sketch_GOOD -I'$(<D)' -o'$@' '$<'
-$(XCLBIN)/sketch_BAD.$(TARGET).$(DSA).xo: src/sketch_bad.cpp
-	mkdir -p $(XCLBIN)
-	$(XOCC) $(CLFLAGS) -c -k sketch_BAD -I'$(<D)' -o'$@' '$<'
-$(XCLBIN)/sketch_GOOD.$(TARGET).$(DSA).xclbin: $(BINARY_CONTAINER_sketch_GOOD_OBJS)
-	mkdir -p $(XCLBIN)
-	$(XOCC) $(CLFLAGS) -l $(LDCLFLAGS) --nk sketch_GOOD:1 -o'$@' $(+)
-$(XCLBIN)/sketch_BAD.$(TARGET).$(DSA).xclbin: $(BINARY_CONTAINER_sketch_BAD_OBJS)
-	mkdir -p $(XCLBIN)
-	$(XOCC) $(CLFLAGS) -l $(LDCLFLAGS) --nk sketch_BAD:1 -o'$@' $(+)
-
-# Building Host
-$(EXECUTABLE): $(HOST_SRCS) $(HOST_HDRS)
-	mkdir -p $(XCLBIN)
-	$(CXX) $(CXXFLAGS) $(HOST_SRCS) $(HOST_HDRS) -o '$@' $(LDFLAGS)
-
-emconfig:$(EMCONFIG_DIR)/emconfig.json
-$(EMCONFIG_DIR)/emconfig.json:
-	emconfigutil --platform $(DEVICE) --od $(EMCONFIG_DIR)
-
-check: all
-ifeq ($(TARGET),$(filter $(TARGET),sw_emu hw_emu))
-	$(CP) $(EMCONFIG_DIR)/emconfig.json .
-	XCL_EMULATION_MODE=$(TARGET) ./$(EXECUTABLE) ./data/car_128x128.bmp
-else
-	 ./$(EXECUTABLE) ./data/car_128x128.bmp
-endif
-	sdx_analyze profile -i sdaccel_profile_summary.csv -f html
-
-# Cleaning stuff
-clean:
-	-$(RMDIR) $(EXECUTABLE) $(XCLBIN)/{*sw_emu*,*hw_emu*} 
-	-$(RMDIR) sdaccel_* TempConfig system_estimate.xtxt *.rpt
-	-$(RMDIR) src/*.ll _xocc_* .Xil emconfig.json dltmp* xmltmp* *.log *.jou *.wcfg *.wdb
-
-cleanall: clean
-	-$(RMDIR) $(XCLBIN)
-	-$(RMDIR) _x.*
-	-$(RMDIR) ./output.bmp 
+include $(COMMON_REPO)/utility/rules.mk
